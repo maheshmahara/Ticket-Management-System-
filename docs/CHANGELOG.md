@@ -5,6 +5,24 @@ which each change was made.
 
 ## Unreleased
 
+- Added `backend/scripts/set_password.py` — the missing piece between
+  "seeded into the org chart" (`seed_staff.py` deliberately leaves
+  `password_hash` NULL) and "can actually log in." Takes an email +
+  password, hashes it with the existing `app/core/security.hash_password`,
+  and sets it on that user. There's no self-serve signup flow (single-org,
+  admin-provisioned system per the RBAC design), so this is the current
+  way to grant login access. Verified the same way as `seed_staff.py`:
+  runs from an unrelated cwd with no `PYTHONPATH`, gets past every
+  import, fails only at the real DB connection (none reachable in this
+  sandbox).
+- Rewrote `backend/README.md`, which still said "scaffold only" and
+  listed implementation steps (flesh out models, write the migration,
+  implement resolvers...) that were all already done — it now reflects
+  the actual working state, with real `docker-compose` setup steps,
+  login instructions, and an honest "remaining known gaps" list (no
+  tests/, no signup flow, prototypes not yet wired to the API) instead
+  of a stale to-do list that had drifted out of sync with reality.
+
 - Fixed a real data bug found by finally getting `scripts/seed_staff.py`
   to run against live Postgres: every `Enum(SomePyEnum, ...)` column
   (`User.role`, `Task.status`, `Task.priority`,
