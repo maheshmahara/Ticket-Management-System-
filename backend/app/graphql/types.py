@@ -50,6 +50,9 @@ class User:
     avatar_color: str
     initials: str
     is_active: bool
+    phone_number: Optional[str]
+    notify_email: bool
+    notify_sms: bool
 
 
 @strawberry.type
@@ -156,3 +159,14 @@ class UpdateTaskInput:
     status: Optional[TaskStatus] = None
     due_at: Optional[datetime] = None
     assignee_id: Optional[strawberry.ID] = None
+
+
+@strawberry.input
+class NotificationPreferencesInput:
+    """User's own notification opt-in/out — see the Notifications section
+    of docs/BACKEND_ARCHITECTURE.md. phone_number is required if notify_sms
+    is being set to true and the user has none on file."""
+
+    phone_number: Optional[str] = None
+    notify_email: Optional[bool] = None
+    notify_sms: Optional[bool] = None

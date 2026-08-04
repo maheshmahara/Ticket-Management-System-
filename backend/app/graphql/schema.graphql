@@ -38,6 +38,9 @@ type User {
   avatarColor: String!
   initials: String!
   isActive: Boolean!
+  phoneNumber: String
+  notifyEmail: Boolean!
+  notifySms: Boolean!
 }
 
 type Comment {
@@ -133,6 +136,14 @@ input UpdateTaskInput {
   assigneeId: ID
 }
 
+"Update the current user's own notification opt-in/out. phoneNumber is
+required if notifySms is set true and none is on file yet."
+input NotificationPreferencesInput {
+  phoneNumber: String
+  notifyEmail: Boolean
+  notifySms: Boolean
+}
+
 type Query {
   me: User
   dashboardStats(departmentId: ID): DashboardStats!
@@ -153,4 +164,7 @@ type Mutation {
   deleteTask(id: ID!): Boolean!
 
   addComment(taskId: ID!, body: String!): Comment!
+
+  "Update the current user's own notification preferences."
+  updateNotificationPreferences(input: NotificationPreferencesInput!): User!
 }

@@ -11,7 +11,16 @@ from strawberry.types import Info
 
 from app.core.security import decode_token  # create_access_token/create_refresh_token: see login() TODO
 from app.graphql.permissions import IsAuthenticated
-from app.graphql.types import AuthPayload, Comment, CreateTaskInput, Task, TaskStatus, UpdateTaskInput
+from app.graphql.types import (
+    AuthPayload,
+    Comment,
+    CreateTaskInput,
+    NotificationPreferencesInput,
+    Task,
+    TaskStatus,
+    UpdateTaskInput,
+    User,
+)
 
 
 @strawberry.type
@@ -70,4 +79,14 @@ class Mutation:
     async def add_comment(self, info: Info, task_id: strawberry.ID, body: str) -> Comment:
         # TODO: verify the task exists and the actor can view it, persist
         # a Comment row with author_id=info.context.user.id.
+        raise NotImplementedError
+
+    @strawberry.mutation(permission_classes=[IsAuthenticated])
+    async def update_notification_preferences(self, info: Info, input: NotificationPreferencesInput) -> User:
+        # TODO: apply input.phone_number / notify_email / notify_sms onto
+        # info.context.user, validate phone_number is set (E.164) if
+        # notify_sms is being turned on, persist, map to User GraphQL type.
+        # Note: this only lets a user manage their OWN preferences — an
+        # admin-facing "manage other users' contact info" mutation is a
+        # separate concern, not added here.
         raise NotImplementedError

@@ -5,6 +5,13 @@ which each change was made.
 
 ## Unreleased
 
+- Added SMS (Twilio) + email (SMTP) notifications for HIGH/URGENT
+  priority tickets: `NotificationLog` model, `notifications.py` service
+  (recipient resolution, send + audit logging, Celery task with retries),
+  `phone_number`/`notify_email`/`notify_sms` fields on `User`,
+  `updateNotificationPreferences` GraphQL mutation, and
+  `NOTIFY_PRIORITIES`/`SMTP_*`/`TWILIO_*` settings. Documented in
+  `docs/BACKEND_ARCHITECTURE.md` (new Notifications section + updated ERD).
 - Added `backend/` — FastAPI + Strawberry GraphQL + PostgreSQL scaffold
   matching `docs/BACKEND_ARCHITECTURE.md` (models, GraphQL schema/types,
   RBAC permission classes, JWT helpers, Docker Compose, Alembic setup).

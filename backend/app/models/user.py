@@ -33,6 +33,16 @@ class User(Base):
     # Hex color for the avatar chip in the UI, e.g. "#1c4b96"
     avatar_color: Mapped[str] = mapped_column(String(7), default="#8e8e93")
 
+    # E.164 format, e.g. "+81901234567" — required for SMS notifications to
+    # actually be deliverable; nullable since not every user opts into SMS.
+    phone_number: Mapped[str | None] = mapped_column(String(20), nullable=True)
+
+    # Per-channel notification opt-in. High/urgent task alerts respect these
+    # — see app/services/notifications.py and the "Notifications" section
+    # of docs/BACKEND_ARCHITECTURE.md.
+    notify_email: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    notify_sms: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
 
@@ -43,6 +53,7 @@ class User(Base):
         back_populates="reporter", foreign_keys="Task.reporter_id"
     )
     comments: Mapped[list["Comment"]] = relationship(back_populates="author")  # noqa: F821
+    notifications: Mapped[list["NotificationLog"]] = relationship(back_populates="recipient")  # noqa: F821
 
     @property
     def initials(self) -> str:

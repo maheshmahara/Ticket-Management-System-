@@ -20,9 +20,31 @@ class Settings(BaseSettings):
 
     cors_origins: str = ""
 
+    # --- Notifications (SMS + Email for high/urgent priority tickets) ---
+    # See docs/BACKEND_ARCHITECTURE.md "Notifications" section.
+
+    notifications_enabled: bool = True
+    # Priorities that trigger SMS + Email alerts, comma-separated.
+    notify_priorities: str = "high,urgent"
+
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_username: str = ""
+    smtp_password: str = ""
+    smtp_from_email: str = "notifications@hnbg.example"
+    smtp_use_tls: bool = True
+
+    twilio_account_sid: str = ""
+    twilio_auth_token: str = ""
+    twilio_from_number: str = ""
+
     @property
     def cors_origin_list(self) -> list[str]:
         return [o.strip() for o in self.cors_origins.split(",") if o.strip()]
+
+    @property
+    def notify_priority_list(self) -> list[str]:
+        return [p.strip().lower() for p in self.notify_priorities.split(",") if p.strip()]
 
 
 @lru_cache
