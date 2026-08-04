@@ -1,12 +1,11 @@
 import uuid
-from dataclasses import dataclass
 from typing import Optional
 
 import strawberry
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
-from strawberry.fastapi import GraphQLRouter
+from strawberry.fastapi import BaseContext, GraphQLRouter
 
 from app.core.config import get_settings
 from app.core.database import get_db
@@ -18,12 +17,22 @@ from app.services.user_service import get_user_by_id
 settings = get_settings()
 
 
-@dataclass
-class GraphQLContext:
-    """Attached to every resolver via `info.context`."""
+class GraphQLContext(BaseContext):
+    """
+    Attached to every resolver via `info.context`.
 
-    db: AsyncSession
-    user: Optional[User]
+    Must subclass strawberry's BaseContext (not just be a plain
+    dataclass) — Strawberry's FastAPI integration raises
+    InvalidCustomContext at request time otherwise, and calls
+    BaseContext.__init__() expectations (request/response/
+    background_tasks attributes) that it sets after construction, so
+    that __init__ has to actually run via super().__init__().
+    """
+
+    def __init__(self, db: AsyncSession, user: Optional[User]) -> None:
+        super().__init__()
+        self.db = db
+        self.user = user
 
 
 async def get_context(request: Request, db: AsyncSession = Depends(get_db)) -> GraphQLContext:

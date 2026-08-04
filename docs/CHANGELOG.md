@@ -5,6 +5,22 @@ which each change was made.
 
 ## Unreleased
 
+- Fixed a real runtime bug found while first booting the stack via
+  `docker-compose up`: hitting `/graphql` returned a bare "Internal
+  Server Error" with `strawberry.exceptions.InvalidCustomContext` in the
+  API logs. Cause: `GraphQLContext` was a plain `@dataclass`, but
+  Strawberry's FastAPI integration requires the context object to
+  subclass `strawberry.fastapi.BaseContext` (or be a dict) — it calls
+  `BaseContext.__init__()` expectations (`request`/`response`/
+  `background_tasks` attrs) after construction. Fixed by making
+  `GraphQLContext` a proper `BaseContext` subclass with an `__init__`
+  that calls `super().__init__()`. Also fixed `.env.example`'s
+  `DATABASE_URL`/`REDIS_URL` defaulting to `localhost`, which only works
+  outside Docker — inside the `api`/`worker` containers those must be
+  the Compose service names (`db`, `redis`), or the Celery worker can
+  never reach Redis. Verified via `TestClient(app).get("/graphql")`
+  returning 200 with the real GraphiQL page, reproducing the exact
+  request path that failed in Docker.
 - Implemented the GraphQL resolver logic that was previously left as
   `NotImplementedError` stubs: `login`/`refreshToken` (JWT issuing +
   password verification), `createTask`/`updateTask`/`assignTask`/
