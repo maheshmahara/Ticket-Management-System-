@@ -5,6 +5,13 @@ which each change was made.
 
 ## Unreleased
 
+- Fixed another real bug found by actually running the seed script in
+  Docker: `Dockerfile` never copied `scripts/` or `seed_data/` into the
+  image (it predates both — only `app/`, `alembic.ini`, and `migrations/`
+  were copied), so `docker-compose exec api python scripts/seed_staff.py`
+  failed with "No such file or directory" even though the files existed
+  on the host. Added `COPY scripts ./scripts` and
+  `COPY seed_data ./seed_data`.
 - Added the initial Alembic migration (`0001_initial_schema`), hand-
   written to mirror every model in `app/models/*.py` exactly (all 7
   tables, all 3 enum types, the `ticket_number_seq` sequence used for
