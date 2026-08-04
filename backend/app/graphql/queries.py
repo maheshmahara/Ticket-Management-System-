@@ -8,7 +8,7 @@ import uuid
 from typing import Optional
 
 import strawberry
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from strawberry.types import Info
 
 from app.graphql.errors import app_error
@@ -64,24 +64,32 @@ class Query:
         db = info.context.db
         user = info.context.user
 
-        # RBAC scoping must match the `tasks` query below: non-admins only
-        # ever see their own department's tasks there, so counting org-wide
-        # here produced dashboard tiles that disagreed with "My Tasks" —
-        # e.g. dashboard said "2 Pending" while the filtered list showed
-        # none, because the pending tasks belonged to a different
-        # department than the logged-in user. Admins may still pass an
-        # explicit department_id to drill into any single department;
-        # non-admins are always scoped to their own regardless of the
-        # argument, since they can't see other departments' tasks anyway.
-        scope_department_id: Optional[uuid.UUID] = None
+        # RBAC scoping must match the `tasks` query below: non-admins see
+        # their own department's tasks there *plus* anything assigned to
+        # or reported by them regardless of department (a normal
+        # cross-department handoff). Counting only by department here —
+        # or org-wide — produced dashboard tiles that disagreed with "My
+        # Tasks": e.g. dashboard said "2 Pending" while the filtered list
+        # showed none, because those pending tasks weren't in the user's
+        # department and (at the time) the list didn't check
+        # assignee/reporter either. Admins may still pass an explicit
+        # department_id to drill into any single department; non-admins
+        # always get their own-department-or-own-task scope regardless
+        # of the argument, since they can't see other departments'
+        # unrelated tasks anyway.
+        scope_clause = None
         if user.role != Role.ADMIN:
-            scope_department_id = user.department_id
+            scope_clause = or_(
+                TaskModel.department_id == user.department_id,
+                TaskModel.assignee_id == user.id,
+                TaskModel.reporter_id == user.id,
+            )
         elif department_id is not None:
-            scope_department_id = uuid.UUID(str(department_id))
+            scope_clause = TaskModel.department_id == uuid.UUID(str(department_id))
 
         base_query = select(TaskModel.status, func.count()).group_by(TaskModel.status)
-        if scope_department_id is not None:
-            base_query = base_query.where(TaskModel.department_id == scope_department_id)
+        if scope_clause is not None:
+            base_query = base_query.where(scope_clause)
 
         result = await db.execute(base_query)
         counts = {status: count for status, count in result.all()}
@@ -93,8 +101,8 @@ class Query:
             TaskModel.due_at < func.now(),
             TaskModel.status != TaskStatus.DONE,
         )
-        if scope_department_id is not None:
-            overdue_query = overdue_query.where(TaskModel.department_id == scope_department_id)
+        if scope_clause is not None:
+            overdue_query = overdue_query.where(scope_clause)
         overdue_count = (await db.execute(overdue_query)).scalar_one()
 
         return DashboardStats(
@@ -142,9 +150,22 @@ class Query:
         query = select(TaskModel)
 
         # RBAC scoping: only Admins see across departments (matches the
-        # "View all departments' tasks" row in the permission matrix).
+        # "View all departments' tasks" row in the permission matrix) —
+        # but non-admins also see any task assigned to or reported by
+        # them regardless of department, mirroring can_view_task /
+        # can_edit_task's own-task carve-out. Without the OR, a task
+        # filed under a different department than its assignee (a
+        # normal cross-department handoff) was completely invisible to
+        # the person actually assigned to do it, even though they could
+        # edit it if they somehow got the link.
         if user.role != Role.ADMIN:
-            query = query.where(TaskModel.department_id == user.department_id)
+            query = query.where(
+                or_(
+                    TaskModel.department_id == user.department_id,
+                    TaskModel.assignee_id == user.id,
+                    TaskModel.reporter_id == user.id,
+                )
+            )
 
         if filter is not None:
             if filter.status is not None:

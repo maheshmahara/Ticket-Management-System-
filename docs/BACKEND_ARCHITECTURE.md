@@ -340,7 +340,19 @@ backend/
 ## Open questions for the next design pass
 
 1. Is "Overdue" a stored status or a computed property (`due_at < now() AND status != done`)? Leaning computed — avoids a background job needing to mutate every row.
-2. Do Members need to see tasks outside their own department at all (e.g. cross-department dependencies), or is department isolation strict?
+2. ~~Do Members need to see tasks outside their own department at all
+   (e.g. cross-department dependencies), or is department isolation
+   strict?~~ — resolved: yes. Members/Managers see their own
+   department's tasks *plus* any task assigned to or reported by them
+   regardless of department (a normal cross-department handoff, e.g.
+   Marketing files a ticket and hands it to someone in Finance). This
+   matches the carve-out `can_edit_task` already had for Members
+   ("only their own tasks — assigned to them or reported by them")
+   which was previously unreachable, since `can_view_task` and the
+   `tasks` list resolver blocked cross-department access before a
+   Member could even load such a task. See `can_view_task` in
+   `app/graphql/permissions.py` and the `tasks`/`dashboard_stats`
+   resolvers in `app/graphql/queries.py`.
 3. File attachments on tasks/comments — in scope for v1 or later?
 4. ~~Notification channels~~ — resolved: SMS (Twilio) + email (SMTP) for
    HIGH/URGENT tickets, see Notifications section above. Slack integration

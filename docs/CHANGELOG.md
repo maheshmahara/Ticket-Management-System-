@@ -5,6 +5,29 @@ which each change was made.
 
 ## Unreleased
 
+- Fixed cross-department task assignments being completely invisible
+  to the assignee. Root cause: `can_view_task` and the `tasks` list
+  resolver only ever checked `department_id == user.department_id`
+  for non-admins, with no fallback for "this task is assigned to or
+  reported by me even though it's filed under someone else's
+  department" — a normal cross-department handoff (confirmed live:
+  `TCK-0008` was filed under Marketing but assigned to a Finance
+  user, so it showed up nowhere for them, neither the dashboard nor
+  My Tasks, despite existing in the database). This also meant
+  `can_edit_task`'s existing "MEMBER: only their own tasks (assigned
+  to them or reported by them)" carve-out was dead code — a Member
+  could never reach a cross-department task to edit it, since view
+  and list access were blocked first. Fixed `can_view_task` in
+  `app/graphql/permissions.py` and the `tasks`/`dashboard_stats`
+  resolvers in `app/graphql/queries.py` to OR in
+  `assignee_id == user.id` / `reporter_id == user.id` alongside the
+  department check. Resolved the corresponding open question in
+  `docs/BACKEND_ARCHITECTURE.md`. Verified with an isolated
+  in-memory SQLite scenario reproducing the exact TCK-0008 shape
+  (task in dept A, assignee in dept B): confirmed the assignee can
+  now view it and it appears in their `tasks` list, while a third,
+  unrelated user still correctly sees nothing.
+
 - Fixed the "My Tasks" sidebar badge showing a hardcoded "12" on every
   page (dashboard.html, tasks.html, task-detail.html) regardless of
   the logged-in user or real task count — it was static markup left

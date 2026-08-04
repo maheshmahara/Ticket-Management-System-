@@ -52,11 +52,24 @@ def _current_user(info: Info):
 def can_view_task(user, task) -> bool:
     """
     Per the RBAC matrix: everyone can view tasks in their own department;
-    only Admins can view tasks outside it.
+    only Admins can view tasks outside it. Additionally, resolving the
+    open question in docs/BACKEND_ARCHITECTURE.md ("do Members need to
+    see tasks outside their own department?"): yes, if it's assigned to
+    or reported by them — otherwise `can_edit_task`'s existing
+    "MEMBER: only their own tasks (assigned to them or reported by
+    them)" carve-out below is unreachable in practice, since a Member
+    can never load a cross-department task to begin with (this
+    function blocks it, and the `tasks` list resolver never returns
+    it). A task filed under a different department than the assignee
+    (e.g. Marketing files a ticket and hands it to someone in Finance)
+    is a normal cross-department handoff, not something that should be
+    invisible to the person actually doing the work.
     """
     if user.role == Role.ADMIN:
         return True
-    return user.department_id == task.department_id
+    if user.department_id == task.department_id:
+        return True
+    return user.id in (task.assignee_id, task.reporter_id)
 
 
 def can_edit_task(user, task) -> bool:
