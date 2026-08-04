@@ -5,6 +5,20 @@ which each change was made.
 
 ## Unreleased
 
+- Added the initial Alembic migration (`0001_initial_schema`), hand-
+  written to mirror every model in `app/models/*.py` exactly (all 7
+  tables, all 3 enum types, the `ticket_number_seq` sequence used for
+  human-readable ticket numbers). Written by hand rather than
+  `alembic revision --autogenerate` since no live Postgres instance was
+  reachable in the environment this was built in — verified instead via
+  `alembic upgrade head --sql` and `alembic downgrade base --sql`,
+  confirming both directions render valid, correctly-ordered SQL with no
+  errors. Also fixed `migrations/env.py`, which only imported
+  `Comment, Department, Task, User` and was missing the newer `Branch`,
+  `BusinessUnit`, and `NotificationLog` models — meant `alembic revision
+  --autogenerate` would silently miss those 3 tables if run before this
+  fix. Run `docker-compose exec api alembic upgrade head` (or `alembic
+  upgrade head` locally) to apply it.
 - Fixed a real runtime bug found while first booting the stack via
   `docker-compose up`: hitting `/graphql` returned a bare "Internal
   Server Error" with `strawberry.exceptions.InvalidCustomContext` in the

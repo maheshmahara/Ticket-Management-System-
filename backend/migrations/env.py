@@ -7,7 +7,15 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from app.core.config import get_settings
 from app.core.database import Base
-from app.models import Comment, Department, Task, User  # noqa: F401  (registers metadata)
+from app.models import (  # noqa: F401  (registers metadata)
+    Branch,
+    BusinessUnit,
+    Comment,
+    Department,
+    NotificationLog,
+    Task,
+    User,
+)
 
 config = context.config
 settings = get_settings()
