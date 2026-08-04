@@ -5,6 +5,24 @@ which each change was made.
 
 ## Unreleased
 
+- Fixed `scripts/set_password.py` (and by extension `login`, since both
+  go through the same `hash_password`/`verify_password` in
+  `app/core/security.py`) failing with a confusing
+  `ValueError: password cannot be longer than 72 bytes` on the *first*
+  password hash ever attempted, no matter how short the actual password
+  was. Root cause: `passlib==1.7.4` (last released 2020) probes the
+  installed `bcrypt` package via a `bcrypt.__about__.__version__`
+  attribute that was removed in `bcrypt>=4.1` — `requirements.txt` had
+  no upper bound on `bcrypt`, so pip resolved the newest release
+  (5.0.0). That failed probe cascades into passlib's own internal
+  self-test using a fixed test string, which is what actually threw the
+  72-byte error — real passwords never got involved. Fixed by pinning
+  `bcrypt==4.0.1` (last release with `__about__` intact) alongside the
+  existing `passlib[bcrypt]==1.7.4`. Verified directly: hash + verify
+  (both correct and incorrect password) round-trip cleanly with this
+  pin, reproducing and then resolving the exact failure from the
+  running container.
+
 - Added `backend/scripts/set_password.py` — the missing piece between
   "seeded into the org chart" (`seed_staff.py` deliberately leaves
   `password_hash` NULL) and "can actually log in." Takes an email +

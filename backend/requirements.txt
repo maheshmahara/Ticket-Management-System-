@@ -9,7 +9,15 @@ alembic==1.13.2
 pydantic==2.9.2
 pydantic-settings==2.5.2
 
+# passlib 1.7.4 (last release, 2020) has a broken bcrypt-version probe
+# against bcrypt>=4.1 (which removed the `__about__` attribute passlib's
+# backend loader reads) -- surfaces as a bogus "password cannot be
+# longer than 72 bytes" ValueError on the very first hash() call, since
+# passlib's own internal self-test fails before your actual password is
+# ever touched. Pinning bcrypt to the last 4.0.x release keeps the
+# `__about__` attribute passlib expects.
 passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
 python-jose[cryptography]==3.3.0
 
 celery==5.4.0
