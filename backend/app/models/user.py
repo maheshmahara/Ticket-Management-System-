@@ -20,15 +20,30 @@ class User(Base):
     __tablename__ = "users"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False, index=True)
+    # Nullable + not unique-enforced at the DB level for staff who don't
+    # have a company email on file yet (several rows in the real HNBG
+    # roster, e.g. restaurant chefs/drivers) — they can be invited to set
+    # one up later. Login is not possible without an email + password.
+    email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
-    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
     role: Mapped[Role] = mapped_column(Enum(Role, name="user_role"), default=Role.MEMBER, nullable=False)
 
     department_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("departments.id"), nullable=True
     )
     department: Mapped["Department"] = relationship(back_populates="users")  # noqa: F821
+
+    # Real-world job title as it appears on the HNBG staff roster, e.g.
+    # "chef", "manager", "gm", "driver delivery" — kept verbatim alongside
+    # the canonical `department` (see backend/scripts/seed_staff.py for the
+    # job-title -> department / RBAC-role mapping used when seeding).
+    job_title: Mapped[str | None] = mapped_column(String(150), nullable=True)
+
+    branch_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("branches.id"), nullable=True
+    )
+    branch: Mapped["Branch"] = relationship(back_populates="users")  # noqa: F821
 
     # Hex color for the avatar chip in the UI, e.g. "#1c4b96"
     avatar_color: Mapped[str] = mapped_column(String(7), default="#8e8e93")

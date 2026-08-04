@@ -5,6 +5,15 @@ which each change was made.
 
 ## Unreleased
 
+- Seeded the real HNBG staff roster (39 people) into the backend:
+  new `BusinessUnit` and `Branch` models (Business Unit → Branch → User),
+  `branch_id`/`job_title` added to `User`, `email`/`password_hash` made
+  nullable to allow org-chart-only entries without login access yet.
+  Data + idempotent loader in `backend/seed_data/staff.json` /
+  `backend/scripts/seed_staff.py`. Mapping rationale (job title →
+  canonical department, job title → RBAC role, typo/data-quality fixes)
+  documented in new `docs/ORG_STRUCTURE.md`; ERD in
+  `docs/BACKEND_ARCHITECTURE.md` updated accordingly.
 - Added SMS (Twilio) + email (SMTP) notifications for HIGH/URGENT
   priority tickets: `NotificationLog` model, `notifications.py` service
   (recipient resolution, send + audit logging, Celery task with retries),

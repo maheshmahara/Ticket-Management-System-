@@ -37,6 +37,8 @@ if HNBG needs to onboard other companies onto the same deployment.
 
 ```mermaid
 erDiagram
+    BUSINESS_UNIT ||--o{ BRANCH : "has"
+    BRANCH ||--o{ USER : "staffs"
     DEPARTMENT ||--o{ USER : "employs"
     DEPARTMENT ||--o{ TASK : "owns"
     USER ||--o{ TASK : "reports"
@@ -47,6 +49,20 @@ erDiagram
     TASK ||--o{ NOTIFICATION_LOG : "triggers"
     USER ||--o{ NOTIFICATION_LOG : "receives"
 
+    BUSINESS_UNIT {
+        uuid id PK
+        string name "e.g. Overall, Restaurants, Trading"
+        timestamptz created_at
+    }
+
+    BRANCH {
+        uuid id PK
+        string name "e.g. Headoffice, Hokkaido Sora"
+        uuid business_unit_id FK
+        bool is_active
+        timestamptz created_at
+    }
+
     DEPARTMENT {
         uuid id PK
         string name
@@ -55,11 +71,13 @@ erDiagram
 
     USER {
         uuid id PK
-        string email UK
+        string email UK "nullable"
         string full_name
-        string password_hash
+        string password_hash "nullable until login is issued"
         enum role "admin | manager | member"
         uuid department_id FK
+        uuid branch_id FK "nullable"
+        string job_title "nullable, verbatim from HR roster"
         string avatar_color
         bool is_active
         string phone_number "nullable, E.164"
@@ -134,6 +152,11 @@ erDiagram
   (see Notifications section below): one row per (task, recipient,
   channel) combination, independent of `AUDIT_LOG` since it tracks
   delivery status of an outbound message, not a change to a task.
+- **BUSINESS_UNIT** and **BRANCH** were added to model HNBG's real org
+  chart (Business Unit → Branch → User) after seeding the actual staff
+  roster. `DEPARTMENT` was intentionally *not* nested under `BRANCH` —
+  see `docs/ORG_STRUCTURE.md` for why department and job title are kept
+  as two separate fields on `USER` rather than merged.
 
 ---
 
@@ -269,6 +292,8 @@ backend/
 │   │   ├── database.py         # Async SQLAlchemy engine/session
 │   │   └── security.py         # Password hashing, JWT encode/decode
 │   ├── models/                 # SQLAlchemy ORM models
+│   │   ├── business_unit.py    # Overall / Restaurants / Trading
+│   │   ├── branch.py           # Headoffice, Hokkaido Sora, ... (belongs to a BusinessUnit)
 │   │   ├── department.py
 │   │   ├── user.py
 │   │   ├── task.py
@@ -286,6 +311,10 @@ backend/
 │   │   └── notifications.py    # SMS (Twilio) + email (smtplib) send + logging
 │   └── core/
 │       └── celery_app.py       # Celery app, beat schedule, task registration
+├── seed_data/
+│   └── staff.json               # Real HNBG staff roster (see docs/ORG_STRUCTURE.md)
+├── scripts/
+│   └── seed_staff.py             # Idempotent loader for seed_data/staff.json
 └── migrations/
     └── versions/                # Alembic migration files
 ```
