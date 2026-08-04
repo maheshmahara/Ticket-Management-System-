@@ -40,6 +40,14 @@
       </a>
     </nav>
 
+    <nav class="nav-section" id="nav-admin-section" style="display:none">
+      <div class="nav-label">System</div>
+      <a class="nav-item" href="admin.html">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 8v4l3 3"/></svg>
+        Admin Panel
+      </a>
+    </nav>
+
     <div class="sidebar-footer">
       <div class="user-chip" onclick="logout()" style="cursor:pointer" title="Sign out">
         <div class="avatar" id="sidebar-avatar">TL</div>
@@ -190,6 +198,7 @@ document.getElementById('filter-pills').addEventListener('click', (e) => {
     document.getElementById('sidebar-role').textContent = me.department ? me.department.name : me.role;
     document.getElementById('sidebar-avatar').textContent = me.initials;
     document.getElementById('sidebar-avatar').style.background = me.avatarColor;
+    if (me.role === 'ADMIN') document.getElementById('nav-admin-section').style.display = '';
   } catch (err) {
     if (err.code === 'FORBIDDEN' || err.message.includes('logged in')) {
       logout();

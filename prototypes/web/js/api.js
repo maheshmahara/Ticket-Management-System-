@@ -213,6 +213,97 @@ const Api = {
     );
     return data.addComment;
   },
+
+  // --- Admin panel (all resolvers below are gated server-side with
+  // permission_classes=[IsAdmin] — a non-admin token gets a FORBIDDEN
+  // GraphQL error, not a silently empty result) ---
+
+  /** Full staff directory with every admin-editable field, as opposed to
+   * the slim Api.users() used by the assignee dropdown elsewhere. */
+  async adminUsers() {
+    const data = await gql(
+      `query AdminUsers {
+        users {
+          id fullName email role isActive jobTitle phoneNumber
+          notifyEmail notifySms initials avatarColor
+          department { id name }
+          branch { id name businessUnit { id name } }
+        }
+      }`
+    );
+    return data.users;
+  },
+
+  async businessUnits() {
+    const data = await gql(
+      `query BusinessUnits {
+        businessUnits { id name branches { id name isActive businessUnit { id name } } }
+      }`
+    );
+    return data.businessUnits;
+  },
+
+  async createDepartment(name) {
+    const data = await gql(`mutation($name: String!) { createDepartment(name: $name) { id name } }`, { name });
+    return data.createDepartment;
+  },
+
+  async createBusinessUnit(name) {
+    const data = await gql(`mutation($name: String!) { createBusinessUnit(name: $name) { id name } }`, { name });
+    return data.createBusinessUnit;
+  },
+
+  async createBranch(input) {
+    const data = await gql(
+      `mutation($input: CreateBranchInput!) {
+        createBranch(input: $input) { id name isActive businessUnit { id name } }
+      }`,
+      { input }
+    );
+    return data.createBranch;
+  },
+
+  async updateBranch(id, input) {
+    const data = await gql(
+      `mutation($id: ID!, $input: UpdateBranchInput!) {
+        updateBranch(id: $id, input: $input) { id name isActive businessUnit { id name } }
+      }`,
+      { id, input }
+    );
+    return data.updateBranch;
+  },
+
+  async createUser(input) {
+    const data = await gql(
+      `mutation($input: CreateUserInput!) {
+        createUser(input: $input) { id fullName email role isActive }
+      }`,
+      { input }
+    );
+    return data.createUser;
+  },
+
+  async updateUser(id, input) {
+    const data = await gql(
+      `mutation($id: ID!, $input: UpdateUserInput!) {
+        updateUser(id: $id, input: $input) {
+          id fullName email role isActive jobTitle phoneNumber notifyEmail notifySms
+          department { id name }
+          branch { id name businessUnit { id name } }
+        }
+      }`,
+      { id, input }
+    );
+    return data.updateUser;
+  },
+
+  async resetUserPassword(id, newPassword) {
+    const data = await gql(
+      `mutation($id: ID!, $newPassword: String!) { resetUserPassword(id: $id, newPassword: $newPassword) }`,
+      { id, newPassword }
+    );
+    return data.resetUserPassword;
+  },
 };
 
 // --- Shared render helpers (status/priority -> the CSS classes already

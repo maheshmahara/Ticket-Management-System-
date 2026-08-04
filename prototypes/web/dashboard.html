@@ -40,6 +40,14 @@
       </a>
     </nav>
 
+    <nav class="nav-section" id="nav-admin-section" style="display:none">
+      <div class="nav-label">System</div>
+      <a class="nav-item" href="admin.html">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 8v4l3 3"/></svg>
+        Admin Panel
+      </a>
+    </nav>
+
     <div class="sidebar-footer">
       <div class="user-chip" onclick="logout()" style="cursor:pointer" title="Sign out">
         <div class="avatar" id="sidebar-avatar">TL</div>
@@ -144,6 +152,7 @@ requireAuth();
     document.getElementById('sidebar-avatar').textContent = me.initials;
     document.getElementById('sidebar-avatar').style.background = me.avatarColor;
     document.getElementById('page-greeting').textContent = `Good day, ${me.fullName.split(' ')[0]}`;
+    if (me.role === 'ADMIN') document.getElementById('nav-admin-section').style.display = '';
 
     document.getElementById('stat-overdue').textContent = stats.overdue;
     document.getElementById('stat-progress').textContent = stats.inProgress;

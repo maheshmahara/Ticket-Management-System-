@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Admin Panel — HNBG</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="hnbg-mark.png" alt="HNBG" class="brand-logo" />
+      <div class="brand-text">
+        <div class="brand-tagline"><span class="c-blue">Hokkaido</span> <span class="c-blue">Nepal</span> <span class="c-red">Business</span> <span class="c-red">Group</span></div>
+        <div class="brand-subtitle"><span class="c-blue">HN</span><span class="c-red">BG</span> <span class="brand-tms">TMS</span></div>
+      </div>
+    </div>
+
+    <nav class="nav-section">
+      <div class="nav-label">Workspace</div>
+      <a class="nav-item" href="dashboard.html">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dashboard
+      </a>
+      <a class="nav-item" href="tasks.html">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        My Tasks
+        <span class="count-badge" id="nav-mytasks-count">–</span>
+      </a>
+      <a class="nav-item" href="#">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        Calendar
+      </a>
+      <a class="nav-item" href="#">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        Timeline
+      </a>
+    </nav>
+
+    <nav class="nav-section">
+      <div class="nav-label">System</div>
+      <a class="nav-item active" href="admin.html">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 8v4l3 3"/></svg>
+        Admin Panel
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-chip" onclick="logout()" style="cursor:pointer" title="Sign out">
+        <div class="avatar" id="sidebar-avatar">TL</div>
+        <div class="user-meta">
+          <div class="user-name" id="sidebar-name">Loading…</div>
+          <div class="user-role" id="sidebar-role">—</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <header class="topbar">
+      <div class="page-title">Admin Panel</div>
+      <div class="topbar-right" id="topbar-actions"></div>
+    </header>
+
+    <div class="content" id="admin-content">
+      <div class="admin-tabs" id="admin-tabs">
+        <button class="pill active" data-tab="users">Users</button>
+        <button class="pill" data-tab="org">Org Structure</button>
+        <button class="pill" data-tab="notifications">Notifications</button>
+      </div>
+
+      <!-- USERS TAB -->
+      <section id="tab-users">
+        <div class="table-panel">
+          <div class="admin-user-head">
+            <span>Name</span>
+            <span>Contact</span>
+            <span>Role</span>
+            <span>Department / Branch</span>
+            <span>Status</span>
+            <span></span>
+          </div>
+          <div id="users-rows">
+            <div style="padding:32px;text-align:center;color:var(--text-tertiary)">Loading staff…</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ORG STRUCTURE TAB -->
+      <section id="tab-org" style="display:none">
+        <div class="two-col">
+          <div>
+            <h3 class="admin-section-title">Departments</h3>
+            <div class="panel" id="departments-panel">
+              <div style="padding:24px;text-align:center;color:var(--text-tertiary)">Loading…</div>
+            </div>
+            <form id="add-department-form" style="display:flex;gap:8px;margin-top:12px" onsubmit="return handleAddDepartment(event)">
+              <div class="field" style="flex:1;margin-bottom:0">
+                <input id="new-department-name" type="text" placeholder="New department name" required />
+              </div>
+              <button type="submit" class="btn btn-primary">Add</button>
+            </form>
+          </div>
+
+          <div>
+            <h3 class="admin-section-title">Business Units &amp; Branches</h3>
+            <div id="business-units-list">
+              <div style="padding:24px;text-align:center;color:var(--text-tertiary)">Loading…</div>
+            </div>
+            <form id="add-bu-form" style="display:flex;gap:8px;margin-top:12px" onsubmit="return handleAddBusinessUnit(event)">
+              <div class="field" style="flex:1;margin-bottom:0">
+                <input id="new-bu-name" type="text" placeholder="New business unit name" required />
+              </div>
+              <button type="submit" class="btn btn-primary">Add</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <!-- NOTIFICATIONS TAB -->
+      <section id="tab-notifications" style="display:none">
+        <div class="panel" style="padding:18px 24px;margin-bottom:20px">
+          <div style="font-size:13.5px;font-weight:600;margin-bottom:4px">How ticket alerts work</div>
+          <div style="font-size:13px;color:var(--text-secondary);line-height:1.6">
+            HIGH/URGENT-priority tickets email and/or text the assignee (and department managers, for URGENT).
+            Which priorities trigger an alert, and the SMTP/Twilio credentials used to send it, are set via
+            server environment variables today, not editable from this panel yet. What <em>is</em> editable
+            here is which staff actually receive email vs. SMS alerts, per person.
+          </div>
+        </div>
+        <div class="table-panel">
+          <div class="admin-user-head" style="grid-template-columns:1.6fr 1fr 1fr 90px 90px">
+            <span>Name</span>
+            <span>Email</span>
+            <span>Phone</span>
+            <span>Email alerts</span>
+            <span>SMS alerts</span>
+          </div>
+          <div id="notify-rows">
+            <div style="padding:32px;text-align:center;color:var(--text-tertiary)">Loading…</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+
+<!-- Add/Edit User modal -->
+<div class="modal-overlay" id="user-modal" style="display:none">
+  <div class="modal-card" style="max-width:520px">
+    <div class="modal-header">
+      <h2 id="user-modal-title">Add User</h2>
+      <button class="modal-close" onclick="closeUserModal()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <form id="user-form" onsubmit="return handleUserFormSubmit(event)">
+        <div class="form-row">
+          <div class="field"><label for="uf-fullname">Full name</label><input id="uf-fullname" type="text" required /></div>
+          <div class="field"><label for="uf-email">Email</label><input id="uf-email" type="email" /></div>
+        </div>
+        <div class="field" id="uf-password-field">
+          <label for="uf-password">Initial password</label>
+          <input id="uf-password" type="text" placeholder="At least 6 characters" />
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="uf-role">Role</label>
+            <select id="uf-role">
+              <option value="MEMBER">Member</option>
+              <option value="MANAGER">Manager</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+          </div>
+          <div class="field"><label for="uf-jobtitle">Job title</label><input id="uf-jobtitle" type="text" placeholder="e.g. chef, gm" /></div>
+        </div>
+        <div class="form-row">
+          <div class="field">
+            <label for="uf-department">Department</label>
+            <select id="uf-department"><option value="">Loading…</option></select>
+          </div>
+          <div class="field">
+            <label for="uf-branch">Branch</label>
+            <select id="uf-branch"><option value="">Unassigned</option></select>
+          </div>
+        </div>
+        <div class="field"><label for="uf-phone">Phone number</label><input id="uf-phone" type="text" placeholder="+81901234567" /></div>
+        <div class="field" id="uf-active-field" style="display:none">
+          <label style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0">
+            Account active
+            <label class="toggle-switch"><input id="uf-active" type="checkbox" checked /><span class="toggle-track"></span></label>
+          </label>
+        </div>
+        <div id="user-form-error" class="aform-error" style="display:none">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+          <span id="user-form-error-text"></span>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="closeUserModal()">Cancel</button>
+      <button type="button" class="btn btn-primary" onclick="document.getElementById('user-form').requestSubmit()" id="user-form-submit">Save</button>
+    </div>
+  </div>
+</div>
+
+<!-- Reset password modal -->
+<div class="modal-overlay" id="password-modal" style="display:none">
+  <div class="modal-card" style="max-width:420px">
+    <div class="modal-header">
+      <h2>Reset Password</h2>
+      <button class="modal-close" onclick="closePasswordModal()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13.5px;color:var(--text-secondary);margin-top:0" id="password-modal-name"></p>
+      <form id="password-form" onsubmit="return handlePasswordFormSubmit(event)">
+        <div class="field"><label for="pf-password">New password</label><input id="pf-password" type="text" placeholder="At least 6 characters" required /></div>
+        <div id="password-form-error" class="aform-error" style="display:none">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+          <span id="password-form-error-text"></span>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="closePasswordModal()">Cancel</button>
+      <button type="button" class="btn btn-primary" onclick="document.getElementById('password-form').requestSubmit()">Set Password</button>
+    </div>
+  </div>
+</div>
+
+<!-- Add branch modal -->
+<div class="modal-overlay" id="branch-modal" style="display:none">
+  <div class="modal-card" style="max-width:420px">
+    <div class="modal-header">
+      <h2 id="branch-modal-title">Add Branch</h2>
+      <button class="modal-close" onclick="closeBranchModal()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <form id="branch-form" onsubmit="return handleBranchFormSubmit(event)">
+        <div class="field"><label for="bf-name">Branch name</label><input id="bf-name" type="text" required /></div>
+        <div class="field" id="bf-active-field" style="display:none">
+          <label style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0">
+            Branch active
+            <label class="toggle-switch"><input id="bf-active" type="checkbox" checked /><span class="toggle-track"></span></label>
+          </label>
+        </div>
+        <div id="branch-form-error" class="aform-error" style="display:none">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+          <span id="branch-form-error-text"></span>
+        </div>
+      </form>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" onclick="closeBranchModal()">Cancel</button>
+      <button type="button" class="btn btn-primary" onclick="document.getElementById('branch-form').requestSubmit()">Save</button>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script src="js/admin.js"></script>
+</body>
+</html>

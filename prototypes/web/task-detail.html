@@ -43,6 +43,10 @@
       <a class="nav-item" href="#">Calendar</a>
       <a class="nav-item" href="#">Timeline</a>
     </nav>
+    <nav class="nav-section" id="nav-admin-section" style="display:none">
+      <div class="nav-label">System</div>
+      <a class="nav-item" href="admin.html">Admin Panel</a>
+    </nav>
     <div class="sidebar-footer">
       <div class="user-chip" onclick="logout()" style="cursor:pointer" title="Sign out"><div class="avatar" id="sidebar-avatar">TL</div><div class="user-meta"><div class="user-name" id="sidebar-name">Loading…</div><div class="user-role" id="sidebar-role">—</div></div></div>
     </div>
@@ -204,6 +208,7 @@ async function handleAddComment(e) {
     document.getElementById('sidebar-role').textContent = me.department ? me.department.name : me.role;
     document.getElementById('sidebar-avatar').textContent = me.initials;
     document.getElementById('sidebar-avatar').style.background = me.avatarColor;
+    if (me.role === 'ADMIN') document.getElementById('nav-admin-section').style.display = '';
   } catch (err) {
     if (err.code === 'FORBIDDEN' || err.message.includes('logged in')) {
       logout();

@@ -166,6 +166,14 @@ async def update_user(db: AsyncSession, *, user_id: uuid.UUID, input) -> User:
     if input.notify_email is not None:
         user.notify_email = input.notify_email
     if input.notify_sms is not None:
+        # Same guard as the self-service updateNotificationPreferences
+        # mutation in mutations.py — SMS enabled with no phone number on
+        # file would just silently never send (notifications.py's
+        # `_send_task_notifications_async` skips the SMS send whenever
+        # `user.phone_number` is falsy), so this catches it at write time
+        # instead of failing invisibly later.
+        if input.notify_sms and not user.phone_number:
+            raise app_error("VALIDATION_ERROR", "This user needs a phone number on file before SMS alerts can be enabled.")
         user.notify_sms = input.notify_sms
 
     await db.commit()

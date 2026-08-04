@@ -3,6 +3,52 @@
 Design iteration history, most recent first. Dates reflect the session in
 which each change was made.
 
+## Unreleased — Admin panel frontend
+
+- Built `prototypes/web/admin.html` + `js/admin.js`: a three-tab System
+  Admin panel (Users / Org Structure / Notifications), wired to the
+  backend surface added below, matching the existing HNBG design
+  system (table-panel/pill/modal-card/aform-field classes already in
+  styles.css, plus a handful of new admin-only primitives: toggle
+  switches, role badges, active/inactive tags, a business-unit
+  accordion).
+  - **Users**: staff directory table, Add/Edit User modal (role,
+    department, branch, job title, phone, active toggle), reset
+    password modal.
+  - **Org Structure**: Departments list + add form; Business Units
+    shown as expandable cards listing their Branches, with add/edit
+    forms for both.
+  - **Notifications**: explains that priority-trigger config and
+    SMTP/Twilio credentials are still environment-variable-only (not
+    made live-editable in this pass — see the reasoning below), and
+    exposes the part that *is* safely editable per-user: an inline
+    toggle table for each staff member's email/SMS alert opt-in, with
+    the SMS toggle disabled client-side when they have no phone number
+    on file (mirroring the same guard added to `org_service.update_user`
+    below).
+  - Also fixed `org_service.update_user` to enforce the same
+    "SMS requires a phone number" rule the self-service
+    `updateNotificationPreferences` mutation already had — without it,
+    an admin could flip on SMS alerts for someone with no phone number
+    and it would just silently never send.
+  - The "Admin Panel" sidebar link only renders for `me.role === 'ADMIN'`
+    (added to dashboard.html, tasks.html, task-detail.html); admin.html
+    itself also redirects non-admins to the dashboard on load — belt
+    and suspenders on top of the server-side `IsAdmin` gate on every
+    mutation/query it calls.
+  - Scope note: making the org-wide notification-priority config
+    (`NOTIFY_PRIORITIES`, SMTP/Twilio secrets) live-editable from the
+    admin panel would require persisting it to a settings table and
+    threading a DB read through `notifications.py`'s currently-sync,
+    module-level `should_notify()` — a bigger structural change than
+    this pass, and one that's risky to make without being able to
+    restart/retest against the user's live Docker stack. Left as a
+    documented gap rather than a half-verified change.
+  - Verified with `node --check` on both JS files, inline-script
+    extraction checks on the three modified pages, an HTML tag-balance
+    check on admin.html, and a full backend schema rebuild after the
+    `org_service.py` change.
+
 ## Unreleased — Admin panel backend
 
 - Added the GraphQL surface for a System Admin panel, all gated with the

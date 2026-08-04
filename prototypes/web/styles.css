@@ -1145,3 +1145,151 @@ ul { list-style: none; margin: 0; padding: 0; }
   .status-grid { grid-template-columns: repeat(2, 1fr); }
   .sidebar { display: none; }
 }
+
+/* ============================================
+   Admin Panel
+   ============================================ */
+
+.admin-tabs { display: flex; gap: 8px; margin-bottom: 22px; }
+
+.role-badge {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  width: fit-content;
+}
+
+.role-badge.admin { background: var(--danger-soft); color: var(--danger); }
+.role-badge.manager { background: var(--accent-soft); color: var(--accent); }
+.role-badge.member { background: var(--neutral-soft); color: var(--neutral); }
+
+.active-tag {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 9px;
+  border-radius: var(--radius-pill);
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.active-tag.is-on { background: var(--success-soft); color: var(--success); }
+.active-tag.is-off { background: var(--neutral-soft); color: var(--neutral); }
+
+/* iOS-style toggle switch, used for isActive / notifyEmail / notifySms */
+.toggle-switch {
+  position: relative;
+  display: inline-block;
+  width: 40px;
+  height: 24px;
+  flex-shrink: 0;
+}
+
+.toggle-switch input { opacity: 0; width: 0; height: 0; }
+
+.toggle-switch .toggle-track {
+  position: absolute;
+  inset: 0;
+  background: var(--neutral-soft);
+  border-radius: var(--radius-pill);
+  transition: background 0.15s var(--ease);
+  cursor: pointer;
+}
+
+.toggle-switch .toggle-track::before {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  left: 3px;
+  top: 3px;
+  background: white;
+  border-radius: 50%;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s var(--ease);
+}
+
+.toggle-switch input:checked + .toggle-track { background: var(--success); }
+.toggle-switch input:checked + .toggle-track::before { transform: translateX(16px); }
+.toggle-switch input:disabled + .toggle-track { opacity: 0.5; cursor: not-allowed; }
+
+/* Admin user table needs more columns than the task table */
+.admin-user-head, .admin-user-row {
+  display: grid;
+  grid-template-columns: 1.6fr 1fr 90px 1fr 90px 140px;
+  gap: 16px;
+  align-items: center;
+}
+
+.admin-user-head { padding: 12px 24px; background: var(--surface-alt); }
+.admin-user-head span { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-tertiary); }
+
+.admin-user-row {
+  padding: 14px 24px;
+  border-bottom: 1px solid;
+  border-image: linear-gradient(90deg, rgba(28,75,150,0.22), rgba(226,35,28,0.22)) 1;
+}
+
+.admin-user-row:last-child { border-bottom: none; }
+
+.row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+
+.icon-action-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(0, 0, 0, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  transition: background 0.15s var(--ease);
+}
+
+.icon-action-btn:hover { background: rgba(0, 0, 0, 0.08); color: var(--text-primary); }
+
+/* Org structure: business unit accordion cards */
+.bu-card { margin-bottom: 14px; }
+
+.bu-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  cursor: pointer;
+}
+
+.bu-card-title { font-size: 15px; font-weight: 700; }
+.bu-card-count { font-size: 12.5px; color: var(--text-tertiary); font-weight: 500; }
+
+.bu-branch-list { border-top: 1px solid var(--border); }
+
+.bu-branch-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 20px 12px 40px;
+  border-bottom: 1px solid var(--border);
+  font-size: 13.5px;
+}
+
+.bu-branch-row:last-child { border-bottom: none; }
+
+.admin-section-title {
+  font-size: 15.5px;
+  font-weight: 700;
+  margin: 0 0 14px;
+}
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+
+@media (max-width: 900px) {
+  .two-col { grid-template-columns: 1fr; }
+  .admin-user-head, .admin-user-row { grid-template-columns: 1.4fr 1fr 80px 1fr 140px; }
+  .admin-user-head span:nth-child(5), .admin-user-row > :nth-child(5) { display: none; }
+}
