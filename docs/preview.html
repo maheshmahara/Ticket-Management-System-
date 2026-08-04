@@ -193,36 +193,76 @@
 </div>
 
 <script>
-mermaid.initialize({ startOnLoad: false, theme: "neutral" });
+// Guard against the mermaid CDN script having failed/been blocked — without
+// this, mermaid.initialize() throwing here would stop the whole script and
+// leave the page stuck on "Loading…" forever with no error shown.
+let mermaidReady = false;
+try {
+  if (typeof mermaid !== "undefined") {
+    mermaid.initialize({ startOnLoad: false, theme: "neutral" });
+    mermaidReady = true;
+  }
+} catch (e) {
+  console.warn("Mermaid failed to initialize:", e);
+}
 
 const docEl = document.getElementById("doc");
 const navItems = document.querySelectorAll(".nav-item");
 
+function isFileProtocol() {
+  return location.protocol === "file:";
+}
+
 async function loadDoc(src, title) {
   navItems.forEach(el => el.classList.toggle("active", el.dataset.src === src));
-  docEl.innerHTML = '<div class="loading">Loading…</div>';
+  docEl.innerHTML = '<div class="loading">Loading ' + title + '…</div>';
 
+  if (typeof marked === "undefined") {
+    docEl.innerHTML =
+      '<p style="color:#e2231c"><strong>The markdown renderer (marked.js) didn\'t load</strong> — ' +
+      'likely a blocked/offline CDN. Check your internet connection and reload. ' +
+      'You can still open the raw file directly: <code>' + src + '</code>.</p>';
+    return;
+  }
+
+  let res;
   try {
-    const res = await fetch(src);
-    if (!res.ok) throw new Error(res.status);
-    const md = await res.text();
-    const html = marked.parse(md, { mangle: false, headerIds: false });
-    docEl.innerHTML = html;
+    res = await fetch(src);
+  } catch (err) {
+    const hint = isFileProtocol()
+      ? 'You opened this file directly (file://) — browsers block fetch() of local files that way. Serve this folder over HTTP instead: <code>python3 -m http.server 8000</code> from the repo root, then open <code>http://localhost:8000/docs/preview.html</code>.'
+      : 'Network request failed. Check the console for details.';
+    docEl.innerHTML = '<p style="color:#e2231c"><strong>Could not load ' + src + '.</strong><br>' + hint + '</p>';
+    return;
+  }
 
-    // Convert fenced ```mermaid blocks (rendered as <pre><code class="language-mermaid">)
-    // into mermaid-renderable divs.
+  if (!res.ok) {
+    docEl.innerHTML = '<p style="color:#e2231c">Could not load ' + src + ' (HTTP ' + res.status + ').</p>';
+    return;
+  }
+
+  const md = await res.text();
+  try {
+    docEl.innerHTML = marked.parse(md, { mangle: false, headerIds: false });
+  } catch (err) {
+    docEl.innerHTML = "<pre>" + md.replace(/</g, "&lt;") + "</pre>";
+    return;
+  }
+
+  if (mermaidReady) {
     docEl.querySelectorAll("code.language-mermaid").forEach((codeEl, i) => {
       const graphDef = codeEl.textContent;
       const container = document.createElement("div");
       container.className = "mermaid";
-      container.id = "mermaid-" + i;
+      container.id = "mermaid-" + i + "-" + Date.now();
       container.textContent = graphDef;
       codeEl.closest("pre").replaceWith(container);
     });
-
-    await mermaid.run({ querySelector: ".mermaid" });
-  } catch (err) {
-    docEl.innerHTML = '<p style="color:#e2231c">Could not load ' + src + '. Serve this folder over HTTP (not file://) — e.g. <code>python3 -m http.server</code> from the repo root — so relative fetches work.</p>';
+    try {
+      await mermaid.run({ querySelector: ".mermaid" });
+    } catch (err) {
+      console.warn("Mermaid render failed:", err);
+    }
   }
 }
 
@@ -233,6 +273,19 @@ navItems.forEach(el => {
 // Load the backend architecture doc by default since that's what we just built.
 const initial = document.querySelector('[data-src="./BACKEND_ARCHITECTURE.md"]');
 loadDoc(initial.dataset.src, initial.dataset.title);
+
+// Last-resort safety net: if nothing has replaced the loading placeholder
+// after 8s (e.g. both CDNs are blocked and something above still slipped
+// through), show a clear message instead of leaving it spinning silently.
+setTimeout(() => {
+  if (docEl.querySelector(".loading")) {
+    docEl.innerHTML =
+      '<p style="color:#e2231c"><strong>Still loading?</strong> This page needs internet access ' +
+      '(for marked.js/mermaid.js) and must be served over HTTP, not opened as a file:// path. ' +
+      'Run <code>python3 -m http.server 8000</code> from the repo root and open ' +
+      '<code>http://localhost:8000/docs/preview.html</code>.</p>';
+  }
+}, 8000);
 </script>
 
 </body>
