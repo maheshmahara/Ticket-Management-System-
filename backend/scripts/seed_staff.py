@@ -22,14 +22,23 @@ the DB schema to already be migrated (`alembic upgrade head`).
 
 import asyncio
 import json
+import sys
 from pathlib import Path
 
-from sqlalchemy import select
-from sqlalchemy.ext.asyncio import AsyncSession
+# Running `python scripts/seed_staff.py` only puts this file's own
+# directory (scripts/) on sys.path, not backend/ itself — so the `app`
+# package below can't be found regardless of cwd or PYTHONPATH. Insert
+# backend/ (this file's parent's parent) explicitly so the script works
+# however it's invoked, e.g. `docker-compose exec api python
+# scripts/seed_staff.py` with WORKDIR /app.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.core.database import AsyncSessionLocal
-from app.models import Branch, BusinessUnit, Department, User
-from app.models.user import Role
+from sqlalchemy import select  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
+
+from app.core.database import AsyncSessionLocal  # noqa: E402
+from app.models import Branch, BusinessUnit, Department, User  # noqa: E402
+from app.models.user import Role  # noqa: E402
 
 SEED_FILE = Path(__file__).resolve().parent.parent / "seed_data" / "staff.json"
 

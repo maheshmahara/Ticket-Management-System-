@@ -5,6 +5,19 @@ which each change was made.
 
 ## Unreleased
 
+- Fixed `scripts/seed_staff.py` failing with `ModuleNotFoundError: No
+  module named 'app'` when run as `python scripts/seed_staff.py` (the
+  documented usage, and what `docker-compose exec api python
+  scripts/seed_staff.py` does under the hood). Running a script by path
+  only puts *that script's own directory* on `sys.path`, not its parent
+  — so `backend/` (which contains the `app` package) was never on the
+  path no matter the working directory or `PYTHONPATH`. Fixed by
+  inserting `backend/` onto `sys.path` explicitly at the top of the
+  script, before any `app.*` import. Verified by running the script
+  from an unrelated working directory with no `PYTHONPATH` set — it now
+  gets past every import and fails only at the actual DB query (no
+  Postgres reachable in the sandbox this was verified in), confirming
+  the import-path bug itself is fixed.
 - Fixed another real bug found by actually running the seed script in
   Docker: `Dockerfile` never copied `scripts/` or `seed_data/` into the
   image (it predates both — only `app/`, `alembic.ini`, and `migrations/`
