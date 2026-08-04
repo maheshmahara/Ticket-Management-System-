@@ -41,6 +41,39 @@ class Department:
 
 
 @strawberry.type
+class BusinessUnitRef:
+    """Lightweight BusinessUnit reference (no nested `branches`), used from
+    Branch.business_unit — breaks what would otherwise be an infinite
+    Branch -> BusinessUnit -> branches -> Branch -> ... cycle, since these
+    GraphQL types are plain dataclasses built eagerly by app/graphql/mappers.py
+    (not lazy per-field resolvers), so any real cycle would recurse forever
+    at mapping time rather than just being an unused schema edge."""
+
+    id: strawberry.ID
+    name: str
+
+
+@strawberry.type
+class Branch:
+    """A physical location/outlet, one level under BusinessUnit."""
+
+    id: strawberry.ID
+    name: str
+    is_active: bool
+    business_unit: BusinessUnitRef
+
+
+@strawberry.type
+class BusinessUnit:
+    """Top level of HNBG's real org structure, e.g. "Overall", "Restaurants",
+    "Trading" — see app/models/business_unit.py for the full rationale."""
+
+    id: strawberry.ID
+    name: str
+    branches: list[Branch]
+
+
+@strawberry.type
 class User:
     id: strawberry.ID
     # Nullable: several seeded HNBG staff (see backend/seed_data/staff.json)
@@ -49,6 +82,11 @@ class User:
     full_name: str
     role: Role
     department: Optional[Department]
+    # Real-world job title from the HNBG roster (e.g. "chef", "gm",
+    # "driver delivery") — see app/models/user.py for why this is kept
+    # verbatim alongside the canonical `department`.
+    job_title: Optional[str]
+    branch: Optional[Branch]
     avatar_color: str
     initials: str
     is_active: bool
@@ -177,3 +215,50 @@ class NotificationPreferencesInput:
     phone_number: Optional[str] = None
     notify_email: Optional[bool] = None
     notify_sms: Optional[bool] = None
+
+
+# --- Admin panel inputs ---
+# Everything below is used only by mutations gated with
+# permission_classes=[IsAdmin] in app/graphql/mutations.py.
+
+
+@strawberry.input
+class CreateUserInput:
+    full_name: str
+    # A temp/initial password the admin sets directly, matching the
+    # existing scripts/set_password.py pattern — there's no email-invite
+    # flow yet (see backend/README.md's "Remaining known gaps"), so admin
+    # user creation has to hand the person *something* to log in with.
+    password: str
+    email: Optional[str] = None
+    role: Role = Role.MEMBER
+    department_id: Optional[strawberry.ID] = None
+    branch_id: Optional[strawberry.ID] = None
+    job_title: Optional[str] = None
+    phone_number: Optional[str] = None
+
+
+@strawberry.input
+class UpdateUserInput:
+    full_name: Optional[str] = None
+    role: Optional[Role] = None
+    department_id: Optional[strawberry.ID] = None
+    branch_id: Optional[strawberry.ID] = None
+    job_title: Optional[str] = None
+    phone_number: Optional[str] = None
+    is_active: Optional[bool] = None
+    notify_email: Optional[bool] = None
+    notify_sms: Optional[bool] = None
+
+
+@strawberry.input
+class CreateBranchInput:
+    name: str
+    business_unit_id: strawberry.ID
+    is_active: bool = True
+
+
+@strawberry.input
+class UpdateBranchInput:
+    name: Optional[str] = None
+    is_active: Optional[bool] = None

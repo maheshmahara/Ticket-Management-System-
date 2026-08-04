@@ -12,19 +12,33 @@ from strawberry.types import Info
 
 from app.core.security import create_access_token, create_refresh_token, decode_token, verify_password
 from app.graphql.errors import app_error
-from app.graphql.mappers import to_comment, to_task, to_user
-from app.graphql.permissions import IsAuthenticated, can_edit_task, can_view_task
+from app.graphql.mappers import (
+    to_branch,
+    to_business_unit,
+    to_comment,
+    to_department,
+    to_task,
+    to_user,
+)
+from app.graphql.permissions import IsAdmin, IsAuthenticated, can_edit_task, can_view_task
 from app.graphql.types import (
     AuthPayload,
+    Branch,
+    BusinessUnit,
     Comment,
+    CreateBranchInput,
     CreateTaskInput,
+    CreateUserInput,
+    Department,
     NotificationPreferencesInput,
     Task,
+    UpdateBranchInput,
+    UpdateUserInput,
 )
 from app.graphql.types import TaskStatus as GqlTaskStatus
 from app.graphql.types import UpdateTaskInput, User
 from app.models.task import TaskStatus as TaskStatusModel
-from app.services import task_service
+from app.services import org_service, task_service
 from app.services.user_service import get_user_by_email, get_user_by_id
 
 
@@ -172,3 +186,77 @@ class Mutation:
         await db.commit()
         await db.refresh(actor, attribute_names=["phone_number", "notify_email", "notify_sms"])
         return to_user(actor)
+
+    # --- Admin panel mutations (permission_classes=[IsAdmin]) ---
+
+    @strawberry.mutation(permission_classes=[IsAdmin])
+    async def create_department(self, info: Info, name: str) -> Department:
+        db = info.context.db
+        if not name.strip():
+            raise app_error("VALIDATION_ERROR", "Department name can't be empty.")
+        department = await org_service.create_department(db, name=name)
+        return to_department(department)
+
+    @strawberry.mutation(permission_classes=[IsAdmin])
+    async def create_business_unit(self, info: Info, name: str) -> BusinessUnit:
+        db = info.context.db
+        if not name.strip():
+            raise app_error("VALIDATION_ERROR", "Business unit name can't be empty.")
+        business_unit = await org_service.create_business_unit(db, name=name)
+        return to_business_unit(business_unit)
+
+    @strawberry.mutation(permission_classes=[IsAdmin])
+    async def create_branch(self, info: Info, input: CreateBranchInput) -> Branch:
+        db = info.context.db
+        if not input.name.strip():
+            raise app_error("VALIDATION_ERROR", "Branch name can't be empty.")
+        branch = await org_service.create_branch(
+            db,
+            name=input.name,
+            business_unit_id=uuid.UUID(str(input.business_unit_id)),
+            is_active=input.is_active,
+        )
+        return to_branch(branch)
+
+    @strawberry.mutation(permission_classes=[IsAdmin])
+    async def update_branch(self, info: Info, id: strawberry.ID, input: UpdateBranchInput) -> Branch:
+        db = info.context.db
+        branch = await org_service.update_branch(
+            db, branch_id=uuid.UUID(str(id)), name=input.name, is_active=input.is_active
+        )
+        return to_branch(branch)
+
+    @strawberry.mutation(permission_classes=[IsAdmin])
+    async def create_user(self, info: Info, input: CreateUserInput) -> User:
+        db = info.context.db
+        if not input.full_name.strip():
+            raise app_error("VALIDATION_ERROR", "Full name can't be empty.")
+        if not input.password or len(input.password) < 6:
+            raise app_error("VALIDATION_ERROR", "Password must be at least 6 characters.")
+        user = await org_service.create_user(db, input=input)
+        return to_user(user)
+
+    @strawberry.mutation(permission_classes=[IsAdmin])
+    async def update_user(self, info: Info, id: strawberry.ID, input: UpdateUserInput) -> User:
+        db = info.context.db
+        actor = info.context.user
+
+        # Guard against an admin locking themselves out by demoting or
+        # deactivating their own account — there'd be no one left who could
+        # undo it via the admin panel itself.
+        if str(id) == str(actor.id):
+            if input.is_active is False:
+                raise app_error("VALIDATION_ERROR", "You can't deactivate your own account.")
+            if input.role is not None and input.role.value != "admin":
+                raise app_error("VALIDATION_ERROR", "You can't remove your own admin role.")
+
+        user = await org_service.update_user(db, user_id=uuid.UUID(str(id)), input=input)
+        return to_user(user)
+
+    @strawberry.mutation(permission_classes=[IsAdmin])
+    async def reset_user_password(self, info: Info, id: strawberry.ID, new_password: str) -> bool:
+        db = info.context.db
+        if not new_password or len(new_password) < 6:
+            raise app_error("VALIDATION_ERROR", "Password must be at least 6 characters.")
+        await org_service.reset_user_password(db, user_id=uuid.UUID(str(id)), new_password=new_password)
+        return True

@@ -18,6 +18,15 @@ from app.models.user import Role
 
 class IsAuthenticated(BasePermission):
     message = "You must be logged in."
+    # Without this, Strawberry's default on_unauthorized() raises a plain
+    # GraphQLError with *no* `code` extension at all — meaning every
+    # `err.code === "FORBIDDEN"` check on the frontend (api.js and every
+    # page that calls it) silently never matched, so an expired/invalid
+    # JWT never actually bounced the user back to login; it just showed
+    # a raw "You must be logged in." error message instead. Found while
+    # writing tests for the admin panel's IsAdmin-gated mutations, which
+    # have the exact same gap.
+    error_extensions = {"code": "FORBIDDEN"}
 
     def has_permission(self, source: typing.Any, info: Info, **kwargs) -> bool:
         return _current_user(info) is not None
@@ -25,6 +34,7 @@ class IsAuthenticated(BasePermission):
 
 class IsAdmin(BasePermission):
     message = "This action requires administrator privileges."
+    error_extensions = {"code": "FORBIDDEN"}
 
     def has_permission(self, source: typing.Any, info: Info, **kwargs) -> bool:
         user = _current_user(info)
@@ -33,6 +43,7 @@ class IsAdmin(BasePermission):
 
 class IsManagerOrAdmin(BasePermission):
     message = "This action requires manager or administrator privileges."
+    error_extensions = {"code": "FORBIDDEN"}
 
     def has_permission(self, source: typing.Any, info: Info, **kwargs) -> bool:
         user = _current_user(info)

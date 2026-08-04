@@ -16,6 +16,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.models.branch import Branch
 from app.models.comment import Comment
 from app.models.notification_log import NotificationTrigger
 from app.models.task import Task, TaskPriority, TaskStatus, ticket_number_seq
@@ -23,11 +24,20 @@ from app.models.user import User
 from app.services.notifications import enqueue_if_needed
 from app.services.user_service import USER_EAGER_LOAD  # noqa: F401 (re-exported for callers building User queries alongside tasks)
 
+# Every User nested under a Task (assignee/reporter/comment author) needs the
+# same relationships loaded as USER_EAGER_LOAD, since app/graphql/mappers.py's
+# to_user() reads user.branch.business_unit unconditionally — added when the
+# admin panel's User.branch field was introduced. Duplicated per-path rather
+# than reused directly because SQLAlchemy's selectinload chains have to be
+# built from the actual attribute path being traversed (Task.assignee, not
+# bare User), so USER_EAGER_LOAD's tuple can't just be spliced in here.
+_USER_NESTED_LOAD = (selectinload(User.department), selectinload(User.branch).selectinload(Branch.business_unit))
+
 TASK_EAGER_LOAD = (
     selectinload(Task.department),
-    selectinload(Task.assignee).selectinload(User.department),
-    selectinload(Task.reporter).selectinload(User.department),
-    selectinload(Task.comments).selectinload(Comment.author).selectinload(User.department),
+    selectinload(Task.assignee).options(*_USER_NESTED_LOAD),
+    selectinload(Task.reporter).options(*_USER_NESTED_LOAD),
+    selectinload(Task.comments).selectinload(Comment.author).options(*_USER_NESTED_LOAD),
 )
 
 # Priorities that make a task notification-worthy. should_notify() in

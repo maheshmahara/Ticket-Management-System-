@@ -3,6 +3,47 @@
 Design iteration history, most recent first. Dates reflect the session in
 which each change was made.
 
+## Unreleased — Admin panel backend
+
+- Added the GraphQL surface for a System Admin panel, all gated with the
+  existing `IsAdmin` permission class:
+  - Types: `BusinessUnit`, `Branch`, `BusinessUnitRef` (a nested-free
+    reference type used from `Branch.business_unit` to avoid a
+    `Branch -> BusinessUnit -> branches -> Branch -> ...` cycle — these
+    GraphQL types are plain dataclasses built eagerly by
+    `app/graphql/mappers.py`, not lazy per-field resolvers, so a real
+    cycle in the type graph would recurse forever at mapping time).
+  - `User` gained `jobTitle` and `branch` fields.
+  - Query: `businessUnits` (nested `branches`).
+  - Mutations: `createDepartment`, `createBusinessUnit`, `createBranch`,
+    `updateBranch`, `createUser`, `updateUser`, `resetUserPassword`.
+    `updateUser` blocks an admin from deactivating or demoting their own
+    account (no other way back into the admin panel if they did).
+  - New `app/services/org_service.py` holds the business logic, following
+    the existing `task_service.py` pattern.
+- Fixed a real bug found while testing the above: Strawberry's permission
+  classes (`IsAuthenticated`, `IsAdmin`, `IsManagerOrAdmin`) never set
+  `error_extensions`, so their `on_unauthorized()` errors carried **no**
+  `code` extension at all — meaning every `err.code === "FORBIDDEN"`
+  check on the frontend (api.js and everywhere it's used) has never
+  actually matched anything; an expired/invalid JWT showed a raw error
+  instead of bouncing back to login. Added `error_extensions = {"code":
+  "FORBIDDEN"}` to all three in `app/graphql/permissions.py`.
+- Fixed a real async bug found in the same pass: `create_business_unit`
+  assigned `business_unit.branches = []` on a freshly `db.refresh()`-ed
+  object to avoid a second query — but assigning an unloaded collection
+  relationship on an AsyncSession-backed object triggers a *synchronous*
+  lazy-load internally, raising `MissingGreenlet` outside SQLAlchemy's
+  async greenlet context. Fixed by re-selecting with `.branches`
+  eager-loaded instead, matching the pattern `create_branch`/
+  `update_branch` already used.
+- Verified all of the above against a real (in-memory SQLite) async
+  session driven through `schema.execute()` end-to-end: non-admin
+  blocked from every admin mutation/query, business unit → branch →
+  department → user creation chain, duplicate-email rejection,
+  self-deactivation/self-demotion guard, password reset, and nested
+  `businessUnits { branches }` resolution. 11/11 assertions passed.
+
 ## Unreleased
 
 - Fixed cross-department task assignments being completely invisible

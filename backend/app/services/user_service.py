@@ -11,9 +11,17 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.models.branch import Branch
 from app.models.user import User
 
-USER_EAGER_LOAD = (selectinload(User.department),)
+# branch.business_unit must also be loaded — app/graphql/mappers.py's
+# to_branch() reads it when mapping User.branch onto the GraphQL type, and
+# accessing an unloaded relationship on an AsyncSession-backed object
+# raises MissingGreenlet rather than a clean error.
+USER_EAGER_LOAD = (
+    selectinload(User.department),
+    selectinload(User.branch).selectinload(Branch.business_unit),
+)
 
 
 async def get_user_by_id(db: AsyncSession, user_id: uuid.UUID) -> User | None:

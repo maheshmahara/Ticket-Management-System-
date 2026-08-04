@@ -12,9 +12,10 @@ from sqlalchemy import func, or_, select
 from strawberry.types import Info
 
 from app.graphql.errors import app_error
-from app.graphql.mappers import to_department, to_task, to_user
-from app.graphql.permissions import IsAuthenticated, can_view_task
+from app.graphql.mappers import to_business_unit, to_department, to_task, to_user
+from app.graphql.permissions import IsAdmin, IsAuthenticated, can_view_task
 from app.graphql.types import (
+    BusinessUnit,
     DashboardStats,
     Department,
     PageInfo,
@@ -31,6 +32,7 @@ from app.models.task import Task as TaskModel
 from app.models.task import TaskPriority as TaskPriorityModel
 from app.models.task import TaskStatus
 from app.models.user import Role
+from app.services import org_service
 from app.services.task_service import TASK_EAGER_LOAD
 from app.services.user_service import list_users
 
@@ -117,6 +119,12 @@ class Query:
         db = info.context.db
         result = await db.execute(select(DepartmentModel).order_by(DepartmentModel.name))
         return [to_department(d) for d in result.scalars().all()]
+
+    @strawberry.field(permission_classes=[IsAdmin])
+    async def business_units(self, info: Info) -> list[BusinessUnit]:
+        db = info.context.db
+        rows = await org_service.list_business_units(db)
+        return [to_business_unit(bu) for bu in rows]
 
     @strawberry.field(permission_classes=[IsAuthenticated])
     async def users(self, info: Info, department_id: Optional[strawberry.ID] = None) -> list[User]:

@@ -14,6 +14,8 @@ this module deliberately does not lazy-load anything itself.
 import strawberry
 
 from app.graphql import types as gql
+from app.models.branch import Branch as BranchModel
+from app.models.business_unit import BusinessUnit as BusinessUnitModel
 from app.models.comment import Comment as CommentModel
 from app.models.department import Department as DepartmentModel
 from app.models.task import Task as TaskModel
@@ -24,6 +26,38 @@ def to_department(department: DepartmentModel) -> gql.Department:
     return gql.Department(id=strawberry.ID(str(department.id)), name=department.name)
 
 
+def to_business_unit_ref(business_unit: BusinessUnitModel) -> gql.BusinessUnitRef:
+    return gql.BusinessUnitRef(id=strawberry.ID(str(business_unit.id)), name=business_unit.name)
+
+
+def to_branch(branch: BranchModel) -> gql.Branch:
+    """`branch.business_unit` must already be eager-loaded by the caller —
+    see BRANCH_EAGER_LOAD in app/services/org_service.py."""
+    return gql.Branch(
+        id=strawberry.ID(str(branch.id)),
+        name=branch.name,
+        is_active=branch.is_active,
+        business_unit=to_business_unit_ref(branch.business_unit),
+    )
+
+
+def to_business_unit(business_unit: BusinessUnitModel) -> gql.BusinessUnit:
+    """`business_unit.branches` must already be eager-loaded by the caller.
+    Each branch's own `.business_unit` is *not* re-fetched here — it's set
+    directly from `business_unit` itself, since that's the same row and
+    re-deriving it via branch.business_unit would need a second
+    eager-loaded hop for no reason."""
+    ref = to_business_unit_ref(business_unit)
+    return gql.BusinessUnit(
+        id=ref.id,
+        name=ref.name,
+        branches=[
+            gql.Branch(id=strawberry.ID(str(b.id)), name=b.name, is_active=b.is_active, business_unit=ref)
+            for b in business_unit.branches
+        ],
+    )
+
+
 def to_user(user: UserModel) -> gql.User:
     return gql.User(
         id=strawberry.ID(str(user.id)),
@@ -31,6 +65,8 @@ def to_user(user: UserModel) -> gql.User:
         full_name=user.full_name,
         role=gql.Role(user.role.value),
         department=to_department(user.department) if user.department else None,
+        job_title=user.job_title,
+        branch=to_branch(user.branch) if user.branch else None,
         avatar_color=user.avatar_color,
         initials=user.initials,
         is_active=user.is_active,
