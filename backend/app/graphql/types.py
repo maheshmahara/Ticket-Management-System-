@@ -127,6 +127,11 @@ class TaskFilterInput:
     department_id: Optional[strawberry.ID] = None
     assignee_id: Optional[strawberry.ID] = None
     search: Optional[str] = None
+    # Used by the "My Tasks" sidebar badge to count only tasks still
+    # outstanding (anything not DONE), without callers having to spell
+    # out `status != DONE` — there's no single TaskStatus value for
+    # "not done" since NOT_DONE isn't a real status.
+    exclude_done: Optional[bool] = None
 
 
 @strawberry.input

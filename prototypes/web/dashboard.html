@@ -28,7 +28,7 @@
       <a class="nav-item" href="tasks.html">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
         My Tasks
-        <span class="count-badge">12</span>
+        <span class="count-badge" id="nav-mytasks-count">–</span>
       </a>
       <a class="nav-item" href="#">
         <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
@@ -149,6 +149,10 @@ requireAuth();
     document.getElementById('stat-progress').textContent = stats.inProgress;
     document.getElementById('stat-pending').textContent = stats.pending;
     document.getElementById('stat-completed').textContent = stats.completed;
+
+    Api.myTasksBadgeCount()
+      .then(count => { document.getElementById('nav-mytasks-count').textContent = count; })
+      .catch(() => {}); // non-fatal — badge just stays at "–"
   } catch (err) {
     if (err.code === 'FORBIDDEN' || err.message.includes('logged in')) {
       logout();

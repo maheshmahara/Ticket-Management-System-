@@ -153,6 +153,8 @@ class Query:
                 query = query.where(TaskModel.priority == TaskPriorityModel(filter.priority.value))
             if filter.department_id is not None:
                 query = query.where(TaskModel.department_id == uuid.UUID(str(filter.department_id)))
+            if filter.exclude_done:
+                query = query.where(TaskModel.status != TaskStatus.DONE)
             if filter.assignee_id is not None:
                 query = query.where(TaskModel.assignee_id == uuid.UUID(str(filter.assignee_id)))
             if filter.search:

@@ -5,6 +5,16 @@ which each change was made.
 
 ## Unreleased
 
+- Fixed the "My Tasks" sidebar badge showing a hardcoded "12" on every
+  page (dashboard.html, tasks.html, task-detail.html) regardless of
+  the logged-in user or real task count — it was static markup left
+  over from the original mockup, never wired to the API. Added
+  `TaskFilterInput.excludeDone` (backend/app/graphql/types.py +
+  queries.py's `tasks` resolver) so "still outstanding" can be
+  queried directly, added `Api.myTasksBadgeCount()` in api.js, and
+  wired all three pages to populate `#nav-mytasks-count` on load
+  (falls back to "–" if the call fails, non-fatal).
+
 - Fixed "My Tasks" appearing empty while the dashboard tiles showed
   nonzero counts (e.g. "2 Pending" but the Pending filter listed
   nothing). Root cause: `dashboard_stats` counted tasks org-wide with

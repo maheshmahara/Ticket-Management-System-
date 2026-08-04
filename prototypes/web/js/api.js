@@ -139,6 +139,23 @@ const Api = {
     return data.users;
   },
 
+  /**
+   * Total count for the "My Tasks" sidebar badge. Deliberately excludes
+   * DONE, since a finished task isn't something you still need to act
+   * on — matches the "things still on your plate" meaning of the badge,
+   * not the department-wide `tasks(filter: null)` total (which includes
+   * everything ever completed). Non-admins get this pre-scoped to their
+   * own department by the `tasks` resolver itself.
+   */
+  async myTasksBadgeCount() {
+    const data = await gql(
+      `query MyTasksBadge {
+        tasks(filter: { excludeDone: true }, page: { first: 1 }) { totalCount }
+      }`
+    );
+    return data.tasks.totalCount;
+  },
+
   async tasks(filter) {
     const data = await gql(
       `query Tasks($filter: TaskFilterInput) {
