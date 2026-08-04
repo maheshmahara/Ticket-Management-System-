@@ -44,7 +44,7 @@
       <a class="nav-item" href="#">Timeline</a>
     </nav>
     <div class="sidebar-footer">
-      <div class="user-chip"><div class="avatar">TL</div><div class="user-meta"><div class="user-name">timelapse</div><div class="user-role">Product Manager</div></div></div>
+      <div class="user-chip" onclick="logout()" style="cursor:pointer" title="Sign out"><div class="avatar" id="sidebar-avatar">TL</div><div class="user-meta"><div class="user-name" id="sidebar-name">Loading…</div><div class="user-role" id="sidebar-role">—</div></div></div>
     </div>
   </aside>
 
@@ -56,67 +56,162 @@
       </div>
     </header>
 
-    <div class="content">
-      <div class="breadcrumb"><a href="tasks.html">My Tasks</a> / #TCK-3021</div>
+    <div class="content" id="detail-content">
+      <div style="padding:32px;text-align:center;color:var(--text-tertiary)">Loading task…</div>
+    </div>
+  </div>
+</div>
 
-      <div class="detail-wrap">
-        <div class="detail-main">
-          <span class="status-chip pending" style="margin-bottom:14px;display:inline-flex">● Pending</span>
-          <h1 style="font-size:22px;font-weight:700;letter-spacing:-0.01em;margin:0 0 8px">Fix SSO login redirect loop on enterprise tenants</h1>
-          <div style="color:var(--text-tertiary);font-size:13px;margin-bottom:24px">#TCK-3021 · Platform Migration · Opened Jul 28</div>
+<script src="js/api.js"></script>
+<script>
+requireAuth();
 
-          <p style="color:var(--text-secondary);line-height:1.6;font-size:14.5px">
-            Enterprise tenants using SAML SSO are hitting a redirect loop after successful IdP authentication.
-            Affects ~40 accounts on the enterprise tier. Suspect a stale session cookie not being cleared on
-            the callback route. Needs a fix before the Aug 9 enterprise release.
-          </p>
+const taskId = new URLSearchParams(location.search).get('id');
 
-          <div style="margin-top:28px">
-            <div class="side-label" style="margin-bottom:10px">Activity</div>
-            <div class="comment">
-              <div class="avatar-sm" style="background:#1c4b96;flex-shrink:0">MJ</div>
-              <div class="comment-body">
-                <div class="comment-meta">Maria J. · 2 hours ago</div>
-                Reproduced locally — looks like the callback handler isn't clearing the old session before setting the new one.
-              </div>
-            </div>
-            <div class="comment">
-              <div class="avatar-sm" style="background:#f2a900;flex-shrink:0">RK</div>
-              <div class="comment-body">
-                <div class="comment-meta">Ravi K. · 45 minutes ago</div>
-                Can confirm on staging too. Flagging as high priority given the release date.
-              </div>
+function timeAgo(iso) {
+  const diffMs = Date.now() - new Date(iso).getTime();
+  const mins = Math.round(diffMs / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins} minute${mins === 1 ? '' : 's'} ago`;
+  const hours = Math.round(mins / 60);
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`;
+  const days = Math.round(hours / 24);
+  return `${days} day${days === 1 ? '' : 's'} ago`;
+}
+
+function renderComment(c) {
+  return `
+    <div class="comment">
+      <div class="avatar-sm" style="background:${avatarColor(c.author)};flex-shrink:0">${avatarInitials(c.author)}</div>
+      <div class="comment-body">
+        <div class="comment-meta">${c.author.fullName} · ${timeAgo(c.createdAt)}</div>
+        ${c.body}
+      </div>
+    </div>
+  `;
+}
+
+function renderTask(task) {
+  const statusClass = STATUS_CLASS[task.status] || 'pending';
+  const statusLabel = STATUS_LABEL[task.status] || task.status;
+  const priorityClass = PRIORITY_CLASS[task.priority] || 'priority-low';
+  const priorityLabel = PRIORITY_LABEL[task.priority] || task.priority;
+  const opened = new Date(task.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+
+  document.title = `#${task.ticketNo} — HNBG`;
+
+  document.getElementById('detail-content').innerHTML = `
+    <div class="breadcrumb"><a href="tasks.html">My Tasks</a> / #${task.ticketNo}</div>
+
+    <div class="detail-wrap">
+      <div class="detail-main">
+        <span class="status-chip ${statusClass}" style="margin-bottom:14px;display:inline-flex">● ${statusLabel}</span>
+        <h1 style="font-size:22px;font-weight:700;letter-spacing:-0.01em;margin:0 0 8px">${task.title}</h1>
+        <div style="color:var(--text-tertiary);font-size:13px;margin-bottom:24px">#${task.ticketNo} · ${task.department.name} · Opened ${opened}</div>
+
+        <p style="color:var(--text-secondary);line-height:1.6;font-size:14.5px">
+          ${task.description || '<span style="color:var(--text-tertiary)">No description provided.</span>'}
+        </p>
+
+        <div style="margin-top:28px">
+          <div class="side-label" style="margin-bottom:10px">Activity</div>
+          <div id="comment-list">
+            ${task.comments.length ? task.comments.map(renderComment).join('') : '<div style="color:var(--text-tertiary);font-size:13px;padding:10px 0">No comments yet.</div>'}
+          </div>
+          <form id="comment-form" style="display:flex;gap:8px;margin-top:16px" onsubmit="return handleAddComment(event)">
+            <input id="comment-body" type="text" placeholder="Add a comment…" style="flex:1" />
+            <button type="submit" class="btn btn-secondary">Post</button>
+          </form>
+        </div>
+      </div>
+
+      <div class="detail-side">
+        <div class="panel">
+          <div class="side-block">
+            <div class="side-label">Assignee</div>
+            <div class="assignee-cell">
+              ${task.assignee
+                ? `<div class="avatar-sm" style="background:${avatarColor(task.assignee)}">${avatarInitials(task.assignee)}</div>${task.assignee.fullName}`
+                : '<span style="color:var(--text-tertiary)">Unassigned</span>'}
             </div>
           </div>
-        </div>
-
-        <div class="detail-side">
-          <div class="panel">
-            <div class="side-block">
-              <div class="side-label">Assignee</div>
-              <div class="assignee-cell"><div class="avatar-sm" style="background:#1c4b96">MJ</div>Maria J.</div>
-            </div>
-            <div class="side-block">
-              <div class="side-label">Priority</div>
-              <span class="priority-tag priority-high">High</span>
-            </div>
-            <div class="side-block">
-              <div class="side-label">Due Date</div>
-              <span class="due-date overdue">Aug 2 · Overdue</span>
-            </div>
-            <div class="side-block">
-              <div class="side-label">Project</div>
-              <div style="font-size:13.5px;font-weight:500">Platform Migration</div>
-            </div>
-            <div class="side-block">
-              <div class="side-label">Reporter</div>
-              <div class="assignee-cell"><div class="avatar-sm" style="background:#8e8e93">TL</div>timelapse</div>
-            </div>
+          <div class="side-block">
+            <div class="side-label">Priority</div>
+            <span class="priority-tag ${priorityClass}">${priorityLabel}</span>
+          </div>
+          <div class="side-block">
+            <div class="side-label">Due Date</div>
+            ${formatDueDate(task.dueAt, task.isOverdue)}
+          </div>
+          <div class="side-block">
+            <div class="side-label">Department</div>
+            <div style="font-size:13.5px;font-weight:500">${task.department.name}</div>
+          </div>
+          <div class="side-block">
+            <div class="side-label">Reporter</div>
+            <div class="assignee-cell"><div class="avatar-sm" style="background:${avatarColor(task.reporter)}">${avatarInitials(task.reporter)}</div>${task.reporter.fullName}</div>
           </div>
         </div>
       </div>
     </div>
-  </div>
-</div>
+  `;
+}
+
+async function loadTask() {
+  if (!taskId) {
+    document.getElementById('detail-content').innerHTML =
+      '<div style="padding:32px;text-align:center;color:var(--danger)">No task selected. Go back to <a href="tasks.html">My Tasks</a>.</div>';
+    return;
+  }
+  try {
+    const task = await Api.task(taskId);
+    if (!task) {
+      document.getElementById('detail-content').innerHTML =
+        '<div style="padding:32px;text-align:center;color:var(--danger)">Task not found.</div>';
+      return;
+    }
+    renderTask(task);
+  } catch (err) {
+    if (err.code === 'FORBIDDEN' || err.message.includes('logged in')) {
+      logout();
+      return;
+    }
+    document.getElementById('detail-content').innerHTML =
+      `<div style="padding:32px;text-align:center;color:var(--danger)">Couldn't load task: ${err.message}</div>`;
+  }
+}
+
+async function handleAddComment(e) {
+  e.preventDefault();
+  const input = document.getElementById('comment-body');
+  const body = input.value.trim();
+  if (!body) return false;
+
+  try {
+    await Api.addComment(taskId, body);
+    input.value = '';
+    await loadTask();
+  } catch (err) {
+    alert(`Couldn't post comment: ${err.message}`);
+  }
+  return false;
+}
+
+(async function initSidebar() {
+  try {
+    const me = await Api.me();
+    document.getElementById('sidebar-name').textContent = me.fullName;
+    document.getElementById('sidebar-role').textContent = me.department ? me.department.name : me.role;
+    document.getElementById('sidebar-avatar').textContent = me.initials;
+    document.getElementById('sidebar-avatar').style.background = me.avatarColor;
+  } catch (err) {
+    if (err.code === 'FORBIDDEN' || err.message.includes('logged in')) {
+      logout();
+      return;
+    }
+  }
+  loadTask();
+})();
+</script>
 </body>
 </html>

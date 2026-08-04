@@ -551,6 +551,7 @@ ul { list-style: none; margin: 0; padding: 0; }
   width: fit-content;
 }
 
+.priority-urgent { background: var(--danger); color: #fff; }
 .priority-high { background: var(--danger-soft); color: var(--danger); }
 .priority-medium { background: var(--warning-soft); color: var(--warning); }
 .priority-low { background: var(--neutral-soft); color: var(--neutral); }

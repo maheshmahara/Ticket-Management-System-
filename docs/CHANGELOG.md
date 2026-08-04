@@ -5,6 +5,40 @@ which each change was made.
 
 ## Unreleased
 
+- Wired the static web prototype to the real backend instead of
+  hardcoded mock data — no framework/build step added, matching how
+  the prototype was already written (plain HTML + inline `<script>`):
+  - New `prototypes/web/js/api.js`: a small fetch-based GraphQL client
+    (login/me/dashboardStats/departments/users/tasks/task/createTask/
+    addComment), JWT storage in `localStorage`, and shared render
+    helpers (`STATUS_CLASS`/`PRIORITY_CLASS`/`formatDueDate`/etc.) so
+    dynamically-rendered rows use the exact same CSS classes as the
+    original static mockup.
+  - `index.html`: real `login` mutation; SSO buttons now say they
+    aren't wired up instead of silently bypassing auth.
+  - `dashboard.html`: real `me` + `dashboardStats` — the 4 status tiles
+    and sidebar user chip show actual data.
+  - `tasks.html`: real `tasks` query with working status-filter pills;
+    honors the `?status=` the dashboard tiles already linked with.
+  - `create-task.html`: department/assignee `<select>`s populated from
+    real `departments`/`users` queries; submits a real `createTask`
+    mutation.
+  - `task-detail.html`: reads `?id=` from the URL, loads the real task
+    + comments via the `task` query, and posts new comments via
+    `addComment`.
+  - `styles.css`: added a missing `.priority-urgent` class — the
+    original mockups only ever showed low/medium/high, but the schema
+    has 4 priority levels.
+  - `backend/.env.example`: added `http://localhost:5500` (`python3 -m
+    http.server`/VS Code Live Server default) and `:8080` to
+    `CORS_ORIGINS`, since these prototypes must be served over http://
+    (not opened via `file://`) for the browser to allow the API calls.
+  - Verified: `node --check` on every script (the standalone file and
+    each page's inline block), plus a static cross-check that every
+    `getElementById` call in each HTML file resolves to a real `id=`
+    in that file, and that every GraphQL field name used matches
+    `schema.graphql` exactly.
+
 - Fixed `scripts/set_password.py` (and by extension `login`, since both
   go through the same `hash_password`/`verify_password` in
   `app/core/security.py`) failing with a confusing

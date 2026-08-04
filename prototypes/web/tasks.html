@@ -41,11 +41,11 @@
     </nav>
 
     <div class="sidebar-footer">
-      <div class="user-chip">
-        <div class="avatar">TL</div>
+      <div class="user-chip" onclick="logout()" style="cursor:pointer" title="Sign out">
+        <div class="avatar" id="sidebar-avatar">TL</div>
         <div class="user-meta">
-          <div class="user-name">timelapse</div>
-          <div class="user-role">Product Manager</div>
+          <div class="user-name" id="sidebar-name">Loading…</div>
+          <div class="user-role" id="sidebar-role">—</div>
         </div>
       </div>
     </div>
@@ -70,12 +70,12 @@
     <div class="content">
 
       <div class="toolbar">
-        <div class="filter-pills">
-          <button class="pill active">All (12)</button>
-          <button class="pill">Pending (5)</button>
-          <button class="pill">In Progress (4)</button>
-          <button class="pill">Review (1)</button>
-          <button class="pill">Done (2)</button>
+        <div class="filter-pills" id="filter-pills">
+          <button class="pill active" data-status="">All</button>
+          <button class="pill" data-status="PENDING">Pending</button>
+          <button class="pill" data-status="IN_PROGRESS">In Progress</button>
+          <button class="pill" data-status="REVIEW">Review</button>
+          <button class="pill" data-status="DONE">Done</button>
         </div>
         <div class="view-toggle">
           <button class="active">
@@ -101,75 +101,103 @@
           <span></span>
         </div>
 
-        <div class="table-row" onclick="location.href='task-detail.html'">
-          <div class="checkbox"></div>
-          <div class="ticket-no">#TCK-3021</div>
-          <div class="ticket-title-cell"><div class="ticket-title">Fix SSO login redirect loop on enterprise tenants</div></div>
-          <span class="status-chip pending">● Pending</span>
-          <div class="assignee-cell"><div class="avatar-sm" style="background:#1c4b96">MJ</div>Maria J.</div>
-          <span class="due-date overdue">Aug 2 · Overdue</span>
-          <span class="priority-tag priority-high">High</span>
-          <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-        </div>
-
-        <div class="table-row">
-          <div class="checkbox"></div>
-          <div class="ticket-no">#TCK-3018</div>
-          <div class="ticket-title-cell"><div class="ticket-title">Draft Q3 marketing site content outline</div></div>
-          <span class="status-chip pending">● Pending</span>
-          <div class="assignee-cell"><div class="avatar-sm" style="background:#f2a900">RK</div>Ravi K.</div>
-          <span class="due-date">Aug 9</span>
-          <span class="priority-tag priority-medium">Medium</span>
-          <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-        </div>
-
-        <div class="table-row">
-          <div class="checkbox"></div>
-          <div class="ticket-no">#TCK-2991</div>
-          <div class="ticket-title-cell"><div class="ticket-title">Implement role-based access control for admin panel</div></div>
-          <span class="status-chip progress">● In Progress</span>
-          <div class="assignee-cell"><div class="avatar-sm" style="background:#1db954">DT</div>Dan T.</div>
-          <span class="due-date">Aug 6</span>
-          <span class="priority-tag priority-high">High</span>
-          <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-        </div>
-
-        <div class="table-row">
-          <div class="checkbox"></div>
-          <div class="ticket-no">#TCK-2987</div>
-          <div class="ticket-title-cell"><div class="ticket-title">Build onboarding checklist UI component</div></div>
-          <span class="status-chip progress">● In Progress</span>
-          <div class="assignee-cell"><div class="avatar-sm" style="background:#e2231c">EW</div>Emma W.</div>
-          <span class="due-date">Aug 11</span>
-          <span class="priority-tag priority-medium">Medium</span>
-          <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-        </div>
-
-        <div class="table-row">
-          <div class="checkbox"></div>
-          <div class="ticket-no">#TCK-2960</div>
-          <div class="ticket-title-cell"><div class="ticket-title">Security review: third-party analytics SDK</div></div>
-          <span class="status-chip review">● Review</span>
-          <div class="assignee-cell"><div class="avatar-sm" style="background:#1c4b96">MJ</div>Maria J.</div>
-          <span class="due-date">Aug 5</span>
-          <span class="priority-tag priority-high">High</span>
-          <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
-        </div>
-
-        <div class="table-row">
-          <div class="checkbox"></div>
-          <div class="ticket-no">#TCK-2901</div>
-          <div class="ticket-title-cell"><div class="ticket-title">Migrate legacy auth service to new identity provider</div></div>
-          <span class="status-chip done">● Done</span>
-          <div class="assignee-cell"><div class="avatar-sm" style="background:#af52de">SL</div>Sara L.</div>
-          <span class="due-date">Aug 3</span>
-          <span class="priority-tag priority-low">Low</span>
-          <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+        <div id="task-rows">
+          <div style="padding:32px;text-align:center;color:var(--text-tertiary)">Loading tasks…</div>
         </div>
       </div>
 
     </div>
   </div>
 </div>
+
+<script src="js/api.js"></script>
+<script>
+requireAuth();
+
+const params = new URLSearchParams(location.search);
+// dashboard.html's status tiles link here with a lowercase ?status=
+// (matching the original mockup's status-chip class names, e.g.
+// "overdue"/"progress"/"pending"/"done") — map those onto the
+// GraphQL TaskStatus enum. "overdue" isn't a stored status (it's
+// computed from dueAt), so it's handled client-side after fetching
+// instead of as a server-side filter.
+const STATUS_PARAM_MAP = { pending: 'PENDING', progress: 'IN_PROGRESS', done: 'DONE' };
+const initialStatusParam = params.get('status');
+let activeStatus = STATUS_PARAM_MAP[initialStatusParam] || '';
+let showOverdueOnly = initialStatusParam === 'overdue';
+
+function renderRow(task) {
+  const assignee = task.assignee;
+  const statusClass = STATUS_CLASS[task.status] || 'pending';
+  const statusLabel = STATUS_LABEL[task.status] || task.status;
+  const priorityClass = PRIORITY_CLASS[task.priority] || 'priority-low';
+  const priorityLabel = PRIORITY_LABEL[task.priority] || task.priority;
+
+  return `
+    <div class="table-row" onclick="location.href='task-detail.html?id=${task.id}'">
+      <div class="checkbox"></div>
+      <div class="ticket-no">#${task.ticketNo}</div>
+      <div class="ticket-title-cell"><div class="ticket-title">${task.title}</div></div>
+      <span class="status-chip ${statusClass}">● ${statusLabel}</span>
+      <div class="assignee-cell">
+        ${assignee
+          ? `<div class="avatar-sm" style="background:${avatarColor(assignee)}">${avatarInitials(assignee)}</div>${assignee.fullName}`
+          : `<span style="color:var(--text-tertiary)">Unassigned</span>`}
+      </div>
+      ${formatDueDate(task.dueAt, task.isOverdue)}
+      <span class="priority-tag ${priorityClass}">${priorityLabel}</span>
+      <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+    </div>
+  `;
+}
+
+async function loadTasks() {
+  const rowsEl = document.getElementById('task-rows');
+  rowsEl.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-tertiary)">Loading tasks…</div>';
+
+  try {
+    const filter = activeStatus ? { status: activeStatus } : null;
+    const result = await Api.tasks(filter);
+    let tasks = result.edges.map(e => e.node);
+    if (showOverdueOnly) tasks = tasks.filter(t => t.isOverdue);
+
+    rowsEl.innerHTML = tasks.length
+      ? tasks.map(renderRow).join('')
+      : '<div style="padding:32px;text-align:center;color:var(--text-tertiary)">No tasks match this filter.</div>';
+  } catch (err) {
+    if (err.code === 'FORBIDDEN' || err.message.includes('logged in')) {
+      logout();
+      return;
+    }
+    rowsEl.innerHTML = `<div style="padding:32px;text-align:center;color:var(--danger)">Couldn't load tasks: ${err.message}</div>`;
+  }
+}
+
+document.getElementById('filter-pills').addEventListener('click', (e) => {
+  const btn = e.target.closest('.pill');
+  if (!btn) return;
+  document.querySelectorAll('#filter-pills .pill').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  activeStatus = btn.dataset.status;
+  showOverdueOnly = false;
+  loadTasks();
+});
+
+(async function init() {
+  try {
+    const me = await Api.me();
+    document.getElementById('sidebar-name').textContent = me.fullName;
+    document.getElementById('sidebar-role').textContent = me.department ? me.department.name : me.role;
+    document.getElementById('sidebar-avatar').textContent = me.initials;
+    document.getElementById('sidebar-avatar').style.background = me.avatarColor;
+  } catch (err) {
+    if (err.code === 'FORBIDDEN' || err.message.includes('logged in')) {
+      logout();
+      return;
+    }
+  }
+  loadTasks();
+})();
+</script>
 </body>
 </html>

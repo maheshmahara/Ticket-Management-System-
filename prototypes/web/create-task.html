@@ -48,14 +48,7 @@
         <div class="aform-group">
           <div class="aform-field is-static">
             <select id="department">
-              <option>Engineering</option>
-              <option>Product</option>
-              <option>Design</option>
-              <option>Marketing</option>
-              <option>Sales</option>
-              <option>Finance</option>
-              <option>Human Resources</option>
-              <option>IT &amp; Operations</option>
+              <option value="">Loading…</option>
             </select>
             <label for="department">Department</label>
             <svg class="aform-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
@@ -88,11 +81,6 @@
               <label for="assignee">Assignee</label>
               <select id="assignee" onchange="updateAssigneeAvatar(this)">
                 <option value="" data-initials="—" data-color="var(--neutral)">Unassigned</option>
-                <option value="mj" data-initials="MJ" data-color="#1c4b96">Maria J.</option>
-                <option value="rk" data-initials="RK" data-color="#f2a900">Ravi K.</option>
-                <option value="dt" data-initials="DT" data-color="#1db954">Dan T.</option>
-                <option value="ew" data-initials="EW" data-color="#e2231c">Emma W.</option>
-                <option value="sl" data-initials="SL" data-color="#af52de">Sara L.</option>
               </select>
             </div>
             <svg class="aform-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
@@ -108,7 +96,12 @@
   </div>
 </div>
 
+<script src="js/api.js"></script>
 <script>
+requireAuth();
+
+let selectedPriority = 'low';
+
 function autoExpand(el) {
   el.style.height = 'auto';
   el.style.height = el.scrollHeight + 'px';
@@ -117,6 +110,7 @@ function autoExpand(el) {
 function selectPriority(el, value) {
   el.parentElement.querySelectorAll('button').forEach(b => b.classList.remove('active'));
   el.classList.add('active');
+  selectedPriority = value;
 }
 
 function updateAssigneeAvatar(select) {
@@ -137,7 +131,37 @@ function clearTitleError() {
   document.getElementById('title-error').style.display = 'none';
 }
 
-function handleCreateTaskSubmit(e) {
+async function loadFormOptions() {
+  const deptSelect = document.getElementById('department');
+  const assigneeSelect = document.getElementById('assignee');
+
+  try {
+    const departments = await Api.departments();
+    deptSelect.innerHTML = departments
+      .map(d => `<option value="${d.id}">${d.name}</option>`)
+      .join('');
+  } catch (err) {
+    deptSelect.innerHTML = '<option value="">Failed to load departments</option>';
+  }
+
+  try {
+    // Unfiltered: any department's staff can be assigned a task from
+    // this form. Narrow to Api.users(deptSelect.value) on department
+    // change if per-department assignee lists are wanted later.
+    const users = await Api.users();
+    assigneeSelect.insertAdjacentHTML(
+      'beforeend',
+      users
+        .map(u => `<option value="${u.id}" data-initials="${u.initials}" data-color="${u.avatarColor}">${u.fullName}</option>`)
+        .join('')
+    );
+  } catch (err) {
+    // Non-fatal — "Unassigned" is still a valid choice.
+    console.error('Failed to load assignees:', err);
+  }
+}
+
+async function handleCreateTaskSubmit(e) {
   e.preventDefault();
   const title = document.getElementById('title').value.trim();
   if (!title) {
@@ -146,9 +170,39 @@ function handleCreateTaskSubmit(e) {
     document.getElementById('title').focus();
     return false;
   }
-  location.href = 'tasks.html';
+
+  const departmentId = document.getElementById('department').value;
+  const assigneeId = document.getElementById('assignee').value;
+  const description = document.getElementById('desc').value.trim();
+  const dueRaw = document.getElementById('due').value;
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+
+  submitBtn.disabled = true;
+  submitBtn.textContent = 'Creating…';
+
+  try {
+    await Api.createTask({
+      title,
+      description: description || null,
+      departmentId,
+      priority: selectedPriority.toUpperCase(),
+      dueAt: dueRaw ? new Date(dueRaw).toISOString() : null,
+      assigneeId: assigneeId || null,
+    });
+    location.href = 'tasks.html';
+  } catch (err) {
+    if (err.code === 'FORBIDDEN' || err.message.includes('logged in')) {
+      logout();
+      return false;
+    }
+    alert(`Couldn't create the task: ${err.message}`);
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Create Task';
+  }
   return false;
 }
+
+loadFormOptions();
 </script>
 
 </body>
