@@ -5,6 +5,17 @@ which each change was made.
 
 ## Unreleased
 
+- Fixed `docker-compose.yml` only live-mounting `./app:/app/app`, so
+  every edit to `scripts/`, `migrations/`, or `seed_data/` required a
+  full `docker-compose build` to take effect inside the container —
+  which is exactly what caused three back-to-back "works only after
+  rebuild" round trips while first standing this stack up (Dockerfile
+  COPY gap, then the seed script's own import bug, then this). Added
+  `./scripts:/app/scripts`, `./migrations:/app/migrations`,
+  `./seed_data:/app/seed_data`, and `./alembic.ini:/app/alembic.ini` as
+  live mounts on both the `api` and `worker` services, matching the
+  existing `./app:/app/app` pattern — future edits to any of these now
+  take effect on container restart, no rebuild needed.
 - Fixed `scripts/seed_staff.py` failing with `ModuleNotFoundError: No
   module named 'app'` when run as `python scripts/seed_staff.py` (the
   documented usage, and what `docker-compose exec api python

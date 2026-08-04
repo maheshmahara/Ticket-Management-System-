@@ -28,6 +28,10 @@ services:
       - "8000:8000"
     volumes:
       - ./app:/app/app
+      - ./scripts:/app/scripts
+      - ./migrations:/app/migrations
+      - ./seed_data:/app/seed_data
+      - ./alembic.ini:/app/alembic.ini
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 
   worker:
@@ -39,6 +43,10 @@ services:
       - redis
     volumes:
       - ./app:/app/app
+      - ./scripts:/app/scripts
+      - ./migrations:/app/migrations
+      - ./seed_data:/app/seed_data
+      - ./alembic.ini:/app/alembic.ini
     command: celery -A app.core.celery_app worker --loglevel=info
 
 volumes:
