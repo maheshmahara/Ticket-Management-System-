@@ -62,9 +62,26 @@ class Query:
         self, info: Info, department_id: Optional[strawberry.ID] = None
     ) -> DashboardStats:
         db = info.context.db
+        user = info.context.user
+
+        # RBAC scoping must match the `tasks` query below: non-admins only
+        # ever see their own department's tasks there, so counting org-wide
+        # here produced dashboard tiles that disagreed with "My Tasks" —
+        # e.g. dashboard said "2 Pending" while the filtered list showed
+        # none, because the pending tasks belonged to a different
+        # department than the logged-in user. Admins may still pass an
+        # explicit department_id to drill into any single department;
+        # non-admins are always scoped to their own regardless of the
+        # argument, since they can't see other departments' tasks anyway.
+        scope_department_id: Optional[uuid.UUID] = None
+        if user.role != Role.ADMIN:
+            scope_department_id = user.department_id
+        elif department_id is not None:
+            scope_department_id = uuid.UUID(str(department_id))
+
         base_query = select(TaskModel.status, func.count()).group_by(TaskModel.status)
-        if department_id is not None:
-            base_query = base_query.where(TaskModel.department_id == uuid.UUID(str(department_id)))
+        if scope_department_id is not None:
+            base_query = base_query.where(TaskModel.department_id == scope_department_id)
 
         result = await db.execute(base_query)
         counts = {status: count for status, count in result.all()}
@@ -76,8 +93,8 @@ class Query:
             TaskModel.due_at < func.now(),
             TaskModel.status != TaskStatus.DONE,
         )
-        if department_id is not None:
-            overdue_query = overdue_query.where(TaskModel.department_id == uuid.UUID(str(department_id)))
+        if scope_department_id is not None:
+            overdue_query = overdue_query.where(TaskModel.department_id == scope_department_id)
         overdue_count = (await db.execute(overdue_query)).scalar_one()
 
         return DashboardStats(

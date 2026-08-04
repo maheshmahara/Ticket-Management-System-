@@ -5,6 +5,23 @@ which each change was made.
 
 ## Unreleased
 
+- Fixed "My Tasks" appearing empty while the dashboard tiles showed
+  nonzero counts (e.g. "2 Pending" but the Pending filter listed
+  nothing). Root cause: `dashboard_stats` counted tasks org-wide with
+  no RBAC scoping, while `tasks` (used by the My Tasks list) always
+  scopes non-admins to their own department. A task created under a
+  different department than the logged-in user counted on the
+  dashboard but was invisible in their task list. Fixed
+  `dashboard_stats` in `backend/app/graphql/queries.py` to apply the
+  same department scoping as `tasks` for non-admins (admins can still
+  pass an explicit `department_id` to drill into any department).
+  Also changed `create-task.html` to default the Department field to
+  the logged-in user's own department (via `me.department.id`,
+  `Api.me()` now requests `department { id name }`) instead of
+  whichever department loads first alphabetically, so this mismatch
+  is less likely to recur. Verified via `py_compile` on the resolver
+  and `node --check` / `new Function(...)` on the modified JS.
+
 - Fixed `createTask` (and, latently, every other datetime column)
   failing with `can't subtract offset-naive and offset-aware
   datetimes` the first time a real due date was submitted from the

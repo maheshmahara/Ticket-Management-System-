@@ -109,7 +109,7 @@ const Api = {
   async me() {
     const data = await gql(
       `query Me {
-        me { id fullName role avatarColor initials department { name } }
+        me { id fullName role avatarColor initials department { id name } }
       }`
     );
     return data.me;

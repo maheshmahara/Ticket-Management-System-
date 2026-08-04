@@ -136,10 +136,19 @@ async function loadFormOptions() {
   const assigneeSelect = document.getElementById('assignee');
 
   try {
-    const departments = await Api.departments();
+    const [departments, me] = await Promise.all([Api.departments(), Api.me()]);
     deptSelect.innerHTML = departments
       .map(d => `<option value="${d.id}">${d.name}</option>`)
       .join('');
+    // Default to the logged-in user's own department rather than
+    // whichever loads first alphabetically. Non-admins can only ever
+    // *see* their own department's tasks (see queries.py's `tasks` and
+    // `dashboard_stats` RBAC scoping) — a task silently created under
+    // a different department was invisible on "My Tasks" even though
+    // it counted on the dashboard tiles. Still overridable below.
+    if (me.department && departments.some(d => d.id === me.department.id)) {
+      deptSelect.value = me.department.id;
+    }
   } catch (err) {
     deptSelect.innerHTML = '<option value="">Failed to load departments</option>';
   }
