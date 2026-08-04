@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>HNBG — Documentation</title>
+<script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+  :root {
+    --bg: #f5f5f7;
+    --surface: #ffffff;
+    --surface-alt: #fbfbfd;
+    --border: rgba(0,0,0,0.08);
+    --border-strong: rgba(0,0,0,0.12);
+    --text-primary: #1d1d1f;
+    --text-secondary: #6e6e73;
+    --text-tertiary: #86868b;
+    --accent: #1c4b96;
+    --danger: #e2231c;
+    --code-bg: #f5f5f7;
+    --radius-lg: 22px;
+    --radius-md: 16px;
+    --radius-sm: 10px;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: var(--bg);
+    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "SF Pro Display", "Inter", "Helvetica Neue", Arial, sans-serif;
+    color: var(--text-primary);
+  }
+
+  .shell { display: flex; min-height: 100vh; }
+
+  /* Sidebar */
+  .sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    background: rgba(251,251,253,0.9);
+    border-right: 1.5px solid;
+    border-image: linear-gradient(180deg, rgba(28,75,150,0.4), rgba(226,35,28,0.4)) 1;
+    padding: 24px 16px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .brand-row { display: flex; align-items: center; gap: 10px; padding: 4px 8px 22px; }
+  .brand-mark {
+    width: 30px; height: 30px; border-radius: 9px;
+    background: linear-gradient(135deg, #1c4b96 55%, #e2231c 55%);
+  }
+  .brand-name { font-size: 15px; font-weight: 700; letter-spacing: -0.01em; }
+  .brand-sub { font-size: 10.5px; color: var(--text-tertiary); font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; }
+
+  .nav-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em;
+    color: var(--text-tertiary); padding: 14px 8px 6px;
+  }
+
+  .nav-item {
+    display: block;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--text-secondary);
+    cursor: pointer;
+    margin-bottom: 2px;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .nav-item:hover { background: rgba(0,0,0,0.045); color: var(--text-primary); }
+  .nav-item.active { background: rgba(28,75,150,0.1); color: var(--accent); font-weight: 600; }
+
+  /* Main */
+  .main { flex: 1; min-width: 0; display: flex; justify-content: center; padding: 48px 32px 100px; }
+  .doc {
+    width: 100%;
+    max-width: 780px;
+    background: var(--surface);
+    border: 1.5px solid transparent;
+    background: linear-gradient(var(--surface), var(--surface)) padding-box,
+                linear-gradient(160deg, rgba(28,75,150,0.35), rgba(226,35,28,0.35)) border-box;
+    border-radius: var(--radius-lg);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.08);
+    padding: 48px 52px 60px;
+  }
+
+  .doc h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; margin: 0 0 6px; }
+  .doc h2 {
+    font-size: 20px; font-weight: 700; letter-spacing: -0.01em;
+    margin: 40px 0 14px; padding-bottom: 10px;
+    border-bottom: 1.5px solid; border-image: linear-gradient(90deg, rgba(28,75,150,0.3), rgba(226,35,28,0.3)) 1;
+  }
+  .doc h3 { font-size: 16px; font-weight: 700; margin: 26px 0 10px; }
+  .doc p { font-size: 14.5px; line-height: 1.7; color: var(--text-secondary); margin: 0 0 14px; }
+  .doc li { font-size: 14.5px; line-height: 1.7; color: var(--text-secondary); }
+  .doc a { color: var(--accent); text-decoration: none; font-weight: 500; }
+  .doc a:hover { text-decoration: underline; }
+  .doc strong { color: var(--text-primary); font-weight: 700; }
+  .doc blockquote {
+    margin: 0 0 18px; padding: 12px 16px;
+    background: rgba(28,75,150,0.06);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+    color: var(--text-secondary);
+    font-size: 13.5px;
+  }
+
+  .doc table { width: 100%; border-collapse: collapse; margin: 0 0 22px; font-size: 13px; }
+  .doc th {
+    text-align: left; padding: 9px 12px; background: var(--surface-alt);
+    font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
+    color: var(--text-tertiary);
+    border-bottom: 1.5px solid; border-image: linear-gradient(90deg, rgba(28,75,150,0.3), rgba(226,35,28,0.3)) 1;
+  }
+  .doc td {
+    padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);
+    vertical-align: top;
+  }
+  .doc tr:last-child td { border-bottom: none; }
+
+  .doc code {
+    background: var(--code-bg);
+    padding: 2px 6px;
+    border-radius: 5px;
+    font-size: 12.5px;
+    font-family: "SF Mono", Menlo, Consolas, monospace;
+    color: #ad1625;
+  }
+
+  .doc pre {
+    background: #1d1d1f;
+    color: #f5f5f7;
+    padding: 18px 20px;
+    border-radius: var(--radius-md);
+    overflow-x: auto;
+    margin: 0 0 20px;
+  }
+  .doc pre code {
+    background: none;
+    color: inherit;
+    padding: 0;
+    font-size: 12.5px;
+    line-height: 1.6;
+  }
+
+  .doc hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+
+  .doc .mermaid { background: var(--surface-alt); border-radius: var(--radius-md); padding: 20px; margin: 0 0 22px; }
+
+  .loading { color: var(--text-tertiary); font-size: 14px; padding: 40px 0; }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand-row">
+      <div class="brand-mark"></div>
+      <div>
+        <div class="brand-name">HNBG</div>
+        <div class="brand-sub">Docs</div>
+      </div>
+    </div>
+
+    <div class="nav-label">Overview</div>
+    <div class="nav-item" data-src="../README.md" data-title="README">README</div>
+
+    <div class="nav-label">Frontend</div>
+    <div class="nav-item" data-src="./DESIGN_SYSTEM.md" data-title="Design System">Design System</div>
+    <div class="nav-item" data-src="./COMPONENTS.md" data-title="Components">Components</div>
+
+    <div class="nav-label">Backend</div>
+    <div class="nav-item" data-src="./BACKEND_ARCHITECTURE.md" data-title="Backend Architecture">Backend Architecture</div>
+    <div class="nav-item" data-src="../backend/README.md" data-title="Backend README">Backend README</div>
+
+    <div class="nav-label">Project</div>
+    <div class="nav-item" data-src="./PROJECT_STRUCTURE.md" data-title="Project Structure">Project Structure</div>
+    <div class="nav-item" data-src="./CHANGELOG.md" data-title="Changelog">Changelog</div>
+  </aside>
+
+  <main class="main">
+    <article class="doc" id="doc">
+      <div class="loading">Loading…</div>
+    </article>
+  </main>
+</div>
+
+<script>
+mermaid.initialize({ startOnLoad: false, theme: "neutral" });
+
+const docEl = document.getElementById("doc");
+const navItems = document.querySelectorAll(".nav-item");
+
+async function loadDoc(src, title) {
+  navItems.forEach(el => el.classList.toggle("active", el.dataset.src === src));
+  docEl.innerHTML = '<div class="loading">Loading…</div>';
+
+  try {
+    const res = await fetch(src);
+    if (!res.ok) throw new Error(res.status);
+    const md = await res.text();
+    const html = marked.parse(md, { mangle: false, headerIds: false });
+    docEl.innerHTML = html;
+
+    // Convert fenced ```mermaid blocks (rendered as <pre><code class="language-mermaid">)
+    // into mermaid-renderable divs.
+    docEl.querySelectorAll("code.language-mermaid").forEach((codeEl, i) => {
+      const graphDef = codeEl.textContent;
+      const container = document.createElement("div");
+      container.className = "mermaid";
+      container.id = "mermaid-" + i;
+      container.textContent = graphDef;
+      codeEl.closest("pre").replaceWith(container);
+    });
+
+    await mermaid.run({ querySelector: ".mermaid" });
+  } catch (err) {
+    docEl.innerHTML = '<p style="color:#e2231c">Could not load ' + src + '. Serve this folder over HTTP (not file://) — e.g. <code>python3 -m http.server</code> from the repo root — so relative fetches work.</p>';
+  }
+}
+
+navItems.forEach(el => {
+  el.addEventListener("click", () => loadDoc(el.dataset.src, el.dataset.title));
+});
+
+// Load the backend architecture doc by default since that's what we just built.
+const initial = document.querySelector('[data-src="./BACKEND_ARCHITECTURE.md"]');
+loadDoc(initial.dataset.src, initial.dataset.title);
+</script>
+
+</body>
+</html>
