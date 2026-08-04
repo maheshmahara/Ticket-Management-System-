@@ -1,0 +1,63 @@
+name: Prototype CI
+
+# Starter pipeline for the design-phase prototype. Extend the "build" stage
+# once this repo grows a real app (framework build, tests, type-checking)
+# instead of static HTML/CSS.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint HTML/CSS
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check for broken relative links in prototypes
+        run: |
+          set -e
+          for f in prototypes/web/*.html; do
+            echo "Checking $f"
+            grep -oE 'href="[a-zA-Z0-9_./-]+\.html"' "$f" | sed 's/href="//;s/"$//' | while read -r link; do
+              if [ ! -f "prototypes/web/$link" ]; then
+                echo "::error file=$f::Broken link to $link"
+                exit 1
+              fi
+            done
+          done
+
+      - name: Verify tag balance (sanity check)
+        run: |
+          python3 - <<'PY'
+          import glob, sys
+          failed = False
+          for path in glob.glob("prototypes/**/*.html", recursive=True) + glob.glob("components/**/*.html", recursive=True):
+              s = open(path).read()
+              if s.count("<div") != s.count("</div>"):
+                  print(f"::error file={path}::Unbalanced <div> tags")
+                  failed = True
+          sys.exit(1 if failed else 0)
+          PY
+
+  deploy-preview:
+    name: Deploy static preview
+    needs: lint
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Upload prototype as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: hnbg-web-prototype
+          path: prototypes/web
+
+      # Swap this step for your real static host (Vercel/Netlify/S3/Pages)
+      # once you're ready to publish a shareable preview URL.
+      - name: Placeholder deploy step
+        run: echo "Add a deploy step for your static hosting provider here."

@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CreateTaskForm — Live Preview</title>
+
+<!-- Tailwind (JIT, browser build) -->
+<script src="https://cdn.tailwindcss.com"></script>
+
+<!-- Babel standalone (JSX -> JS, leaves ESM import/export intact) -->
+<script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+
+<!-- Import map: bare specifiers used inside CreateTaskForm.jsx resolve here -->
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@18",
+    "react-dom/client": "https://esm.sh/react-dom@18/client",
+    "lucide-react": "https://esm.sh/lucide-react@0.383.0?external=react"
+  }
+}
+</script>
+
+<style>
+  body { margin: 0; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="module">
+  // Fetch the real component source (no duplication / no drift from the
+  // production file) and transpile only the JSX with Babel, leaving all
+  // import/export statements untouched so the browser's native ESM
+  // resolver (via the import map above) can handle them.
+  const res = await fetch('./CreateTaskForm.jsx');
+  const source = await res.text();
+
+  const { code } = Babel.transform(source, {
+    presets: ['react'],
+    filename: 'CreateTaskForm.jsx',
+  });
+
+  const blob = new Blob([code], { type: 'text/javascript' });
+  const url = URL.createObjectURL(blob);
+  const { default: CreateTaskForm } = await import(url);
+
+  const React = await import('react');
+  const { createRoot } = await import('react-dom/client');
+
+  const root = createRoot(document.getElementById('root'));
+  root.render(
+    React.createElement(CreateTaskForm, {
+      onSubmit: (task) => {
+        console.log('Task submitted:', task);
+        alert('Task created:\n\n' + JSON.stringify(task, null, 2));
+      },
+      onCancel: () => console.log('Cancelled'),
+    })
+  );
+</script>
+</body>
+</html>

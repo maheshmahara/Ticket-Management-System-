@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>#TCK-3021 — HNBG</title>
+<link rel="stylesheet" href="styles.css" />
+<style>
+  .detail-wrap { display: grid; grid-template-columns: 1fr 300px; gap: 24px; }
+  .detail-main {
+    background: linear-gradient(var(--surface), var(--surface)) padding-box,
+                linear-gradient(160deg, rgba(28,75,150,0.4), rgba(226,35,28,0.4)) border-box;
+    border: 1.5px solid transparent;
+    border-radius: var(--radius-lg);
+    padding: 28px;
+    box-shadow: var(--shadow-sm);
+  }
+  .detail-side .panel { padding: 4px 0; }
+  .side-block { padding: 16px 20px; border-bottom: 1px solid; border-image: linear-gradient(90deg, rgba(28,75,150,0.28), rgba(226,35,28,0.28)) 1; }
+  .side-block:last-child { border-bottom: none; }
+  .side-label { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-tertiary); margin-bottom: 8px; }
+  .breadcrumb { font-size: 13px; color: var(--text-tertiary); margin-bottom: 14px; }
+  .breadcrumb a { color: var(--accent); }
+  .comment { display: flex; gap: 10px; padding: 14px 0; border-top: 1px solid; border-image: linear-gradient(90deg, rgba(28,75,150,0.22), rgba(226,35,28,0.22)) 1; }
+  .comment-body { font-size: 13.5px; }
+  .comment-meta { font-size: 12px; color: var(--text-tertiary); margin-bottom: 3px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="hnbg-mark.png" alt="HNBG" class="brand-logo" />
+      <div class="brand-text">
+        <div class="brand-tagline"><span class="c-blue">Hokkaido</span> <span class="c-blue">Nepal</span> <span class="c-red">Business</span> <span class="c-red">Group</span></div>
+        <div class="brand-subtitle"><span class="c-blue">HN</span><span class="c-red">BG</span> <span class="brand-tms">TMS</span></div>
+      </div>
+    </div>
+    <nav class="nav-section">
+      <div class="nav-label">Workspace</div>
+      <a class="nav-item" href="dashboard.html">Dashboard</a>
+      <a class="nav-item active" href="tasks.html">My Tasks <span class="count-badge">12</span></a>
+      <a class="nav-item" href="#">Calendar</a>
+      <a class="nav-item" href="#">Timeline</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-chip"><div class="avatar">TL</div><div class="user-meta"><div class="user-name">timelapse</div><div class="user-role">Product Manager</div></div></div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="page-title">Task Detail</div>
+      <div class="topbar-right">
+        <button class="btn btn-secondary" onclick="location.href='tasks.html'">Close</button>
+      </div>
+    </header>
+
+    <div class="content">
+      <div class="breadcrumb"><a href="tasks.html">My Tasks</a> / #TCK-3021</div>
+
+      <div class="detail-wrap">
+        <div class="detail-main">
+          <span class="status-chip pending" style="margin-bottom:14px;display:inline-flex">● Pending</span>
+          <h1 style="font-size:22px;font-weight:700;letter-spacing:-0.01em;margin:0 0 8px">Fix SSO login redirect loop on enterprise tenants</h1>
+          <div style="color:var(--text-tertiary);font-size:13px;margin-bottom:24px">#TCK-3021 · Platform Migration · Opened Jul 28</div>
+
+          <p style="color:var(--text-secondary);line-height:1.6;font-size:14.5px">
+            Enterprise tenants using SAML SSO are hitting a redirect loop after successful IdP authentication.
+            Affects ~40 accounts on the enterprise tier. Suspect a stale session cookie not being cleared on
+            the callback route. Needs a fix before the Aug 9 enterprise release.
+          </p>
+
+          <div style="margin-top:28px">
+            <div class="side-label" style="margin-bottom:10px">Activity</div>
+            <div class="comment">
+              <div class="avatar-sm" style="background:#1c4b96;flex-shrink:0">MJ</div>
+              <div class="comment-body">
+                <div class="comment-meta">Maria J. · 2 hours ago</div>
+                Reproduced locally — looks like the callback handler isn't clearing the old session before setting the new one.
+              </div>
+            </div>
+            <div class="comment">
+              <div class="avatar-sm" style="background:#f2a900;flex-shrink:0">RK</div>
+              <div class="comment-body">
+                <div class="comment-meta">Ravi K. · 45 minutes ago</div>
+                Can confirm on staging too. Flagging as high priority given the release date.
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="detail-side">
+          <div class="panel">
+            <div class="side-block">
+              <div class="side-label">Assignee</div>
+              <div class="assignee-cell"><div class="avatar-sm" style="background:#1c4b96">MJ</div>Maria J.</div>
+            </div>
+            <div class="side-block">
+              <div class="side-label">Priority</div>
+              <span class="priority-tag priority-high">High</span>
+            </div>
+            <div class="side-block">
+              <div class="side-label">Due Date</div>
+              <span class="due-date overdue">Aug 2 · Overdue</span>
+            </div>
+            <div class="side-block">
+              <div class="side-label">Project</div>
+              <div style="font-size:13.5px;font-weight:500">Platform Migration</div>
+            </div>
+            <div class="side-block">
+              <div class="side-label">Reporter</div>
+              <div class="assignee-cell"><div class="avatar-sm" style="background:#8e8e93">TL</div>timelapse</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

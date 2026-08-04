@@ -1,0 +1,15 @@
+{
+  "name": "hnbg-task-management",
+  "version": "0.1.0",
+  "private": true,
+  "description": "HNBG Task Management System — UI design phase: static prototypes, design system docs, and the CreateTaskForm React component.",
+  "scripts": {
+    "serve:web": "python3 -m http.server 8000 --directory prototypes/web",
+    "serve:mobile": "python3 -m http.server 8001 --directory prototypes/mobile",
+    "serve:component": "python3 -m http.server 8002 --directory components/react",
+    "lint:html": "echo \"Wire up an HTML linter (e.g. htmlhint) here once a Node toolchain is added\"",
+    "build": "echo \"No build step yet — prototypes/ are plain static HTML/CSS\""
+  },
+  "keywords": ["hnbg", "task-management", "design-system", "ui-prototype"],
+  "license": "UNLICENSED"
+}
