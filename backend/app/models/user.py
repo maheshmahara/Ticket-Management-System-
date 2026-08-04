@@ -27,7 +27,19 @@ class User(Base):
     email: Mapped[str | None] = mapped_column(String(255), unique=True, nullable=True, index=True)
     full_name: Mapped[str] = mapped_column(String(255), nullable=False)
     password_hash: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    role: Mapped[Role] = mapped_column(Enum(Role, name="user_role"), default=Role.MEMBER, nullable=False)
+    # values_callable is required: SQLAlchemy's Enum(SomePyEnum) binds by
+    # the Python enum member's *name* ("MEMBER") by default, not its
+    # .value ("member") -- but the Postgres enum type (see the Alembic
+    # migration) was created with the lowercase .value strings. Without
+    # this, every INSERT/UPDATE fails with "invalid input value for enum
+    # user_role: MEMBER" (found by actually running scripts/seed_staff.py
+    # against a real Postgres instance, not caught by any import/compile
+    # check beforehand).
+    role: Mapped[Role] = mapped_column(
+        Enum(Role, name="user_role", values_callable=lambda obj: [e.value for e in obj]),
+        default=Role.MEMBER,
+        nullable=False,
+    )
 
     department_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("departments.id"), nullable=True

@@ -5,6 +5,20 @@ which each change was made.
 
 ## Unreleased
 
+- Fixed a real data bug found by finally getting `scripts/seed_staff.py`
+  to run against live Postgres: every `Enum(SomePyEnum, ...)` column
+  (`User.role`, `Task.status`, `Task.priority`,
+  `NotificationLog.channel`/`trigger`/`status` — 6 columns across 3
+  models) failed on insert with `invalid input value for enum user_role:
+  "MEMBER"`. Cause: SQLAlchemy's `Enum(PythonEnumClass)` binds using the
+  enum member's *name* (`"MEMBER"`) by default, not its `.value`
+  (`"member"`) — but the Postgres enum types created by
+  `0001_initial_schema` use the lowercase `.value` strings, matching
+  what the rest of the app (GraphQL types, service layer) already
+  expects everywhere else. Fixed by adding `values_callable=lambda obj:
+  [e.value for e in obj]` to all 6 columns. Verified by inspecting each
+  column's compiled `type.enums` and confirming all 6 now list the
+  lowercase values instead of the uppercase names.
 - Fixed `docker-compose.yml` only live-mounting `./app:/app/app`, so
   every edit to `scripts/`, `migrations/`, or `seed_data/` required a
   full `docker-compose build` to take effect inside the container —

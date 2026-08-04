@@ -40,11 +40,22 @@ class Task(Base):
     title: Mapped[str] = mapped_column(String(255), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # values_callable is required: SQLAlchemy's Enum(SomePyEnum) binds by
+    # the Python enum member's *name* by default, not its .value -- but
+    # the Postgres enum types (see the Alembic migration) were created
+    # with the lowercase .value strings. See app/models/user.py's `role`
+    # column for the full explanation; same fix applied here.
     status: Mapped[TaskStatus] = mapped_column(
-        Enum(TaskStatus, name="task_status"), default=TaskStatus.PENDING, nullable=False, index=True
+        Enum(TaskStatus, name="task_status", values_callable=lambda obj: [e.value for e in obj]),
+        default=TaskStatus.PENDING,
+        nullable=False,
+        index=True,
     )
     priority: Mapped[TaskPriority] = mapped_column(
-        Enum(TaskPriority, name="task_priority"), default=TaskPriority.MEDIUM, nullable=False, index=True
+        Enum(TaskPriority, name="task_priority", values_callable=lambda obj: [e.value for e in obj]),
+        default=TaskPriority.MEDIUM,
+        nullable=False,
+        index=True,
     )
 
     department_id: Mapped[uuid.UUID] = mapped_column(

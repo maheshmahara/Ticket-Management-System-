@@ -48,14 +48,23 @@ class NotificationLog(Base):
     recipient_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     recipient: Mapped["User"] = relationship(back_populates="notifications")  # noqa: F821
 
+    # values_callable is required on all three: SQLAlchemy's
+    # Enum(SomePyEnum) binds by the Python enum member's *name* by
+    # default, not its .value -- but the Postgres enum types (see the
+    # Alembic migration) were created with the lowercase .value strings.
+    # See app/models/user.py's `role` column for the full explanation.
     channel: Mapped[NotificationChannel] = mapped_column(
-        Enum(NotificationChannel, name="notification_channel"), nullable=False
+        Enum(NotificationChannel, name="notification_channel", values_callable=lambda obj: [e.value for e in obj]),
+        nullable=False,
     )
     trigger: Mapped[NotificationTrigger] = mapped_column(
-        Enum(NotificationTrigger, name="notification_trigger"), nullable=False
+        Enum(NotificationTrigger, name="notification_trigger", values_callable=lambda obj: [e.value for e in obj]),
+        nullable=False,
     )
     status: Mapped[NotificationStatus] = mapped_column(
-        Enum(NotificationStatus, name="notification_status"), default=NotificationStatus.QUEUED, nullable=False
+        Enum(NotificationStatus, name="notification_status", values_callable=lambda obj: [e.value for e in obj]),
+        default=NotificationStatus.QUEUED,
+        nullable=False,
     )
 
     # Provider message id (Twilio SID / email Message-ID) for tracing, and
