@@ -25,10 +25,12 @@ the full rationale):
 """
 
 import smtplib
+import uuid
 from email.mime.text import MIMEText
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.celery_app import celery_app
 from app.core.config import get_settings
@@ -93,18 +95,32 @@ def send_task_notifications(self, task_id: str, trigger: str) -> None:
 
 
 async def _send_task_notifications_async(task_id: str, trigger: NotificationTrigger) -> None:
-    # TODO: open a DB session (see app.core.database.AsyncSessionLocal),
-    # load the Task with department/assignee eagerly loaded, confirm
-    # should_notify(task.priority) is still true (priority may have
-    # changed again since this job was enqueued), then:
-    #
-    #   recipients = await recipients_for_task(db, task, trigger)
-    #   for user in recipients:
-    #       if user.notify_email and user.email:
-    #           await _send_and_log(db, task, user, NotificationChannel.EMAIL, trigger)
-    #       if user.notify_sms and user.phone_number:
-    #           await _send_and_log(db, task, user, NotificationChannel.SMS, trigger)
-    raise NotImplementedError
+    # Imported here (not at module top) to avoid a circular import: this
+    # module is imported by app.core.celery_app at load time, and
+    # app.core.database imports app.core.config, which is safe, but
+    # keeping DB imports local to functions that actually need them keeps
+    # this module importable even before the DB layer is fully wired.
+    from app.core.database import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as db:
+        result = await db.execute(
+            select(Task)
+            .options(selectinload(Task.department), selectinload(Task.assignee))
+            .where(Task.id == uuid.UUID(task_id))
+        )
+        task = result.scalar_one_or_none()
+        if task is None or not should_notify(task.priority):
+            # Priority may have changed (or the task may have been
+            # deleted) since this job was enqueued — re-check rather than
+            # trusting the state at enqueue time.
+            return
+
+        recipients = await recipients_for_task(db, task, trigger)
+        for user in recipients:
+            if user.notify_email and user.email:
+                await _send_and_log(db, task, user, NotificationChannel.EMAIL, trigger)
+            if user.notify_sms and user.phone_number:
+                await _send_and_log(db, task, user, NotificationChannel.SMS, trigger)
 
 
 async def _send_and_log(

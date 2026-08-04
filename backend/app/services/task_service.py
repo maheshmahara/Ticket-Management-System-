@@ -1,14 +1,39 @@
 """
 Business logic for tasks, kept out of GraphQL resolvers so it's reusable
 from REST endpoints, Celery jobs, or tests without going through GraphQL.
+
+Every function that returns a Task re-fetches it through `get_task()`
+after committing, so the row it hands back always has its relationships
+(department/assignee/reporter/comments) eager-loaded and ready for
+app.graphql.mappers.to_task() — accessing an unloaded relationship on an
+AsyncSession object raises MissingGreenlet, not a clean error.
 """
+
+import uuid
+from datetime import datetime, timezone
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from app.models.notification_log import NotificationTrigger  # noqa: F401 (referenced in TODO docstrings below)
-from app.models.task import Task, ticket_number_seq
-from app.services.notifications import enqueue_if_needed  # noqa: F401 (referenced in TODO docstrings below)
+from app.models.comment import Comment
+from app.models.notification_log import NotificationTrigger
+from app.models.task import Task, TaskPriority, TaskStatus, ticket_number_seq
+from app.models.user import User
+from app.services.notifications import enqueue_if_needed
+from app.services.user_service import USER_EAGER_LOAD  # noqa: F401 (re-exported for callers building User queries alongside tasks)
+
+TASK_EAGER_LOAD = (
+    selectinload(Task.department),
+    selectinload(Task.assignee).selectinload(User.department),
+    selectinload(Task.reporter).selectinload(User.department),
+    selectinload(Task.comments).selectinload(Comment.author).selectinload(User.department),
+)
+
+# Priorities that make a task notification-worthy. should_notify() in
+# notifications.py does the actual settings-aware gate before anything is
+# sent — this just decides when it's worth calling enqueue_if_needed() at all.
+NOTIFIABLE_PRIORITIES = (TaskPriority.HIGH, TaskPriority.URGENT)
 
 
 async def next_ticket_no(db: AsyncSession) -> str:
@@ -21,35 +46,109 @@ async def next_ticket_no(db: AsyncSession) -> str:
     return f"TCK-{n:04d}"
 
 
-async def create_task(db: AsyncSession, *, actor, input) -> Task:
+async def get_task(db: AsyncSession, task_id: uuid.UUID) -> Task | None:
+    result = await db.execute(select(Task).options(*TASK_EAGER_LOAD).where(Task.id == task_id))
+    return result.scalar_one_or_none()
+
+
+async def create_task(db: AsyncSession, *, actor: User, input) -> Task:
+    task = Task(
+        ticket_no=await next_ticket_no(db),
+        title=input.title,
+        description=input.description,
+        status=TaskStatus(input.status.value),
+        priority=TaskPriority(input.priority.value),
+        department_id=uuid.UUID(str(input.department_id)),
+        assignee_id=uuid.UUID(str(input.assignee_id)) if input.assignee_id else None,
+        reporter_id=actor.id,
+        due_at=input.due_at,
+    )
+    db.add(task)
+    await db.commit()
+
+    task = await get_task(db, task.id)
+    enqueue_if_needed(task, NotificationTrigger.TASK_CREATED)
+    return task
+
+
+async def update_task(db: AsyncSession, *, actor: User, task: Task, input) -> Task:
     """
-    TODO: implement.
-      1. ticket_no = await next_ticket_no(db)
-      2. task = Task(ticket_no=ticket_no, reporter_id=actor.id, **input mapped to model fields)
-      3. db.add(task); await db.commit(); await db.refresh(task)
-      4. enqueue_if_needed(task, NotificationTrigger.TASK_CREATED) — fires
-         SMS/email to the assignee (+ department managers if URGENT) when
-         `input.priority` is HIGH/URGENT. See app/services/notifications.py.
-      5. return task
+    Applies `input` fields onto `task`, persists, and enqueues a
+    notification only on the two cases that actually warrant an alert:
+    the assignee changed, or the priority was escalated *into*
+    HIGH/URGENT (not on every edit of an already-high-priority ticket,
+    to avoid notification fatigue).
     """
-    raise NotImplementedError
+    previously_notifiable = task.priority in NOTIFIABLE_PRIORITIES
+    assignee_changed = False
+
+    if input.title is not None:
+        task.title = input.title
+    if input.description is not None:
+        task.description = input.description
+    if input.department_id is not None:
+        task.department_id = uuid.UUID(str(input.department_id))
+    if input.priority is not None:
+        task.priority = TaskPriority(input.priority.value)
+    if input.status is not None:
+        _apply_status(task, TaskStatus(input.status.value))
+    if input.due_at is not None:
+        task.due_at = input.due_at
+    if input.assignee_id is not None:
+        new_assignee_id = uuid.UUID(str(input.assignee_id))
+        assignee_changed = new_assignee_id != task.assignee_id
+        task.assignee_id = new_assignee_id
+
+    await db.commit()
+    task = await get_task(db, task.id)
+
+    now_notifiable = task.priority in NOTIFIABLE_PRIORITIES
+    if assignee_changed and now_notifiable:
+        enqueue_if_needed(task, NotificationTrigger.TASK_ASSIGNED)
+    elif not previously_notifiable and now_notifiable:
+        enqueue_if_needed(task, NotificationTrigger.PRIORITY_ESCALATED)
+
+    return task
 
 
-async def update_task(db: AsyncSession, *, actor, task: Task, input) -> Task:
-    """
-    TODO: implement (apply `input` fields onto `task`, persist), then:
+def _apply_status(task: Task, new_status: TaskStatus) -> None:
+    if new_status == TaskStatus.DONE and task.status != TaskStatus.DONE:
+        task.completed_at = datetime.now(timezone.utc)
+    elif new_status != TaskStatus.DONE:
+        task.completed_at = None
+    task.status = new_status
 
-      previously_notifiable = task.priority in (TaskPriority.HIGH, TaskPriority.URGENT)
-      # ... apply changes ...
-      now_notifiable = task.priority in (TaskPriority.HIGH, TaskPriority.URGENT)
 
-      if input.assignee_id is not None:
-          enqueue_if_needed(task, NotificationTrigger.TASK_ASSIGNED)
-      elif not previously_notifiable and now_notifiable:
-          enqueue_if_needed(task, NotificationTrigger.PRIORITY_ESCALATED)
+async def assign_task(db: AsyncSession, *, task: Task, assignee_id: uuid.UUID | None) -> Task:
+    changed = assignee_id != task.assignee_id
+    task.assignee_id = assignee_id
+    await db.commit()
 
-    i.e. only notify on assignment or on an *escalation into* high/urgent —
-    not on every unrelated edit to an already-high-priority ticket, to
-    avoid notification fatigue.
-    """
-    raise NotImplementedError
+    task = await get_task(db, task.id)
+    if changed and task.priority in NOTIFIABLE_PRIORITIES:
+        enqueue_if_needed(task, NotificationTrigger.TASK_ASSIGNED)
+    return task
+
+
+async def change_task_status(db: AsyncSession, *, task: Task, status: TaskStatus) -> Task:
+    _apply_status(task, status)
+    await db.commit()
+    return await get_task(db, task.id)
+
+
+async def delete_task(db: AsyncSession, *, task: Task) -> None:
+    await db.delete(task)
+    await db.commit()
+
+
+async def add_comment(db: AsyncSession, *, actor: User, task: Task, body: str) -> Comment:
+    comment = Comment(task_id=task.id, author_id=actor.id, body=body)
+    db.add(comment)
+    await db.commit()
+
+    result = await db.execute(
+        select(Comment)
+        .options(selectinload(Comment.author).selectinload(User.department))
+        .where(Comment.id == comment.id)
+    )
+    return result.scalar_one()

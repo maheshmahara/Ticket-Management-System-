@@ -5,6 +5,22 @@ which each change was made.
 
 ## Unreleased
 
+- Implemented the GraphQL resolver logic that was previously left as
+  `NotImplementedError` stubs: `login`/`refreshToken` (JWT issuing +
+  password verification), `createTask`/`updateTask`/`assignTask`/
+  `changeTaskStatus`/`deleteTask`/`addComment`, `updateNotificationPreferences`,
+  and the `me`/`users`/`task`/`tasks`/`departments` queries (with RBAC
+  department-scoping and cursor pagination on `tasks`). Added
+  `app/graphql/mappers.py` (ORM → GraphQL type mapping),
+  `app/graphql/errors.py` (typed `code`-bearing GraphQL errors), and
+  `app/services/user_service.py`. `app/main.py`'s auth context now
+  actually loads the requesting user from their JWT instead of leaving a
+  TODO, and the DB session is now a proper FastAPI-managed dependency
+  (closed automatically per request) instead of a manually opened one.
+  `User.email` is now nullable end-to-end (GraphQL type + SDL) to match
+  the seeded roster. Verified with a full create → update → assign →
+  status-change → comment → delete flow against an isolated SQLite DB,
+  not just import/compile checks.
 - Seeded the real HNBG staff roster (39 people) into the backend:
   new `BusinessUnit` and `Branch` models (Business Unit → Branch → User),
   `branch_id`/`job_title` added to `User`, `email`/`password_hash` made

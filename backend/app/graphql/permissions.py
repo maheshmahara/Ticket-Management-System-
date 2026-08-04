@@ -49,6 +49,16 @@ def _current_user(info: Info):
     return getattr(info.context, "user", None)
 
 
+def can_view_task(user, task) -> bool:
+    """
+    Per the RBAC matrix: everyone can view tasks in their own department;
+    only Admins can view tasks outside it.
+    """
+    if user.role == Role.ADMIN:
+        return True
+    return user.department_id == task.department_id
+
+
 def can_edit_task(user, task) -> bool:
     """
     Object-level check used inside mutation resolvers (updateTask,

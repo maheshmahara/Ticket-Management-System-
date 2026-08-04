@@ -43,7 +43,9 @@ class Department:
 @strawberry.type
 class User:
     id: strawberry.ID
-    email: str
+    # Nullable: several seeded HNBG staff (see backend/seed_data/staff.json)
+    # have no company email on file yet and can't log in until one is set.
+    email: Optional[str]
     full_name: str
     role: Role
     department: Optional[Department]
