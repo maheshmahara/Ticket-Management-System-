@@ -5,6 +5,30 @@ which each change was made.
 
 ## Unreleased
 
+- Fixed `createTask` (and, latently, every other datetime column)
+  failing with `can't subtract offset-naive and offset-aware
+  datetimes` the first time a real due date was submitted from the
+  now-wired-up frontend. Root cause: 11 `Mapped[datetime]` columns
+  across 7 models (`Task.due_at`/`completed_at`/`created_at`/
+  `updated_at`, `User.created_at`, `Comment.created_at`,
+  `NotificationLog.created_at`/`sent_at`, `Department.created_at`,
+  `Branch.created_at`, `BusinessUnit.created_at`) never declared
+  `DateTime(timezone=True)` explicitly, so SQLAlchemy inferred a
+  *naive* type for the bind parameter — mismatched against both the
+  actual Postgres columns (created as `TIMESTAMP WITH TIME ZONE` by
+  the Alembic migration) and every timezone-aware datetime the app
+  already produces elsewhere (`datetime.now(timezone.utc)` in
+  `task_service._apply_status`, any ISO datetime a real GraphQL client
+  sends). Fixed with one change instead of 11: added a
+  `type_annotation_map = {datetime: DateTime(timezone=True)}` on
+  `Base` in `app/core/database.py`, so every current and future bare
+  `Mapped[datetime]` column is timezone-aware automatically. Verified
+  by inspecting each of the 11 columns' compiled `type.timezone`
+  (all now `True`) and by compiling a real `INSERT` against the
+  asyncpg dialect directly — confirms `due_at` now casts as
+  `TIMESTAMP WITH TIME ZONE` instead of the `WITHOUT TIME ZONE` seen
+  in the actual error.
+
 - Wired the static web prototype to the real backend instead of
   hardcoded mock data — no framework/build step added, matching how
   the prototype was already written (plain HTML + inline `<script>`):
