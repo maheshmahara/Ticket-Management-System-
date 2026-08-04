@@ -5,7 +5,12 @@ which each change was made.
 
 ## Unreleased
 
-- **Locked** the design phase — no further visual changes without explicit sign-off.
+- Added `backend/` — FastAPI + Strawberry GraphQL + PostgreSQL scaffold
+  matching `docs/BACKEND_ARCHITECTURE.md` (models, GraphQL schema/types,
+  RBAC permission classes, JWT helpers, Docker Compose, Alembic setup).
+  Verified the schema builds and all modules import cleanly; resolver
+  bodies are intentionally left as `TODO`s for the implementation phase.
+- **Locked** the frontend design phase — no further visual changes without explicit sign-off.
 - Reorganized all deliverables into this git-ready repository structure.
 
 ## Create Task form

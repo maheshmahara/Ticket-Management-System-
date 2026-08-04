@@ -1,0 +1,86 @@
+import enum
+import uuid
+from datetime import datetime
+
+from sqlalchemy import Enum, ForeignKey, Sequence, String, Text
+from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.sql import func
+
+from app.core.database import Base
+
+# Backs human-readable ticket numbers: TCK-0001, TCK-0002, ...
+ticket_number_seq = Sequence("ticket_number_seq", start=1)
+
+
+class TaskStatus(str, enum.Enum):
+    PENDING = "pending"
+    IN_PROGRESS = "in_progress"
+    REVIEW = "review"
+    DONE = "done"
+
+
+class TaskPriority(str, enum.Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    URGENT = "urgent"
+
+
+class Task(Base):
+    __tablename__ = "tasks"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+
+    # e.g. "TCK-3021" — generated from ticket_number_seq in the service layer,
+    # not directly from the DB default, so we can control the "TCK-" prefix
+    # and zero-padding in Python.
+    ticket_no: Mapped[str] = mapped_column(String(20), unique=True, nullable=False, index=True)
+
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    status: Mapped[TaskStatus] = mapped_column(
+        Enum(TaskStatus, name="task_status"), default=TaskStatus.PENDING, nullable=False, index=True
+    )
+    priority: Mapped[TaskPriority] = mapped_column(
+        Enum(TaskPriority, name="task_priority"), default=TaskPriority.MEDIUM, nullable=False, index=True
+    )
+
+    department_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("departments.id"), nullable=False, index=True
+    )
+    department: Mapped["Department"] = relationship(back_populates="tasks")  # noqa: F821
+
+    assignee_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True
+    )
+    assignee: Mapped["User | None"] = relationship(  # noqa: F821
+        back_populates="assigned_tasks", foreign_keys=[assignee_id]
+    )
+
+    reporter_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    reporter: Mapped["User"] = relationship(  # noqa: F821
+        back_populates="reported_tasks", foreign_keys=[reporter_id]
+    )
+
+    due_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    completed_at: Mapped[datetime | None] = mapped_column(nullable=True)
+
+    created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
+
+    comments: Mapped[list["Comment"]] = relationship(  # noqa: F821
+        back_populates="task", cascade="all, delete-orphan"
+    )
+
+    @property
+    def is_overdue(self) -> bool:
+        """
+        Computed, not stored — see "Open questions" in
+        docs/BACKEND_ARCHITECTURE.md. Avoids a background job having to
+        mutate every row when a due date passes.
+        """
+        if self.due_at is None or self.status == TaskStatus.DONE:
+            return False
+        return datetime.utcnow() > self.due_at

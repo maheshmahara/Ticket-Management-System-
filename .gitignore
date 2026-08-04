@@ -5,3 +5,11 @@ build/
 *.log
 .env
 .env.local
+
+# Python (backend/)
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+*.egg-info/

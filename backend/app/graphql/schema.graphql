@@ -1,0 +1,156 @@
+# SDL reference for the HNBG Task Management GraphQL API.
+# This file documents the schema; the executable schema is assembled in
+# schema.py using Strawberry's code-first types. Keep the two in sync —
+# regenerate this file with `strawberry export-schema app.graphql.schema:schema`
+# once resolvers are implemented, rather than hand-editing both forever.
+
+enum Role {
+  ADMIN
+  MANAGER
+  MEMBER
+}
+
+enum TaskStatus {
+  PENDING
+  IN_PROGRESS
+  REVIEW
+  DONE
+}
+
+enum TaskPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+type Department {
+  id: ID!
+  name: String!
+}
+
+type User {
+  id: ID!
+  email: String!
+  fullName: String!
+  role: Role!
+  department: Department
+  avatarColor: String!
+  initials: String!
+  isActive: Boolean!
+}
+
+type Comment {
+  id: ID!
+  body: String!
+  author: User!
+  createdAt: DateTime!
+}
+
+type Task {
+  id: ID!
+  ticketNo: String!
+  title: String!
+  description: String
+  status: TaskStatus!
+  priority: TaskPriority!
+  department: Department!
+  assignee: User
+  reporter: User!
+  dueAt: DateTime
+  isOverdue: Boolean!
+  completedAt: DateTime
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  comments: [Comment!]!
+}
+
+type PageInfo {
+  hasNextPage: Boolean!
+  endCursor: String
+}
+
+type TaskEdge {
+  cursor: String!
+  node: Task!
+}
+
+type TaskConnection {
+  edges: [TaskEdge!]!
+  pageInfo: PageInfo!
+  totalCount: Int!
+}
+
+"Powers the four dashboard status tiles: Pending / In Progress / Overdue / Completed."
+type DashboardStats {
+  pending: Int!
+  inProgress: Int!
+  overdue: Int!
+  completed: Int!
+}
+
+type AuthPayload {
+  accessToken: String!
+  refreshToken: String!
+  user: User!
+}
+
+input TaskFilterInput {
+  status: TaskStatus
+  priority: TaskPriority
+  departmentId: ID
+  assigneeId: ID
+  search: String
+}
+
+input TaskSortInput {
+  field: String! # "createdAt" | "dueAt" | "priority"
+  direction: String! # "ASC" | "DESC"
+}
+
+input PageInput {
+  first: Int
+  after: String
+}
+
+input CreateTaskInput {
+  title: String!
+  description: String
+  departmentId: ID!
+  priority: TaskPriority = MEDIUM
+  status: TaskStatus = PENDING
+  dueAt: DateTime
+  assigneeId: ID
+}
+
+input UpdateTaskInput {
+  title: String
+  description: String
+  departmentId: ID
+  priority: TaskPriority
+  status: TaskStatus
+  dueAt: DateTime
+  assigneeId: ID
+}
+
+type Query {
+  me: User
+  dashboardStats(departmentId: ID): DashboardStats!
+  tasks(filter: TaskFilterInput, sort: TaskSortInput, page: PageInput): TaskConnection!
+  task(id: ID!): Task
+  departments: [Department!]!
+  users(departmentId: ID): [User!]!
+}
+
+type Mutation {
+  login(email: String!, password: String!): AuthPayload!
+  refreshToken(token: String!): AuthPayload!
+
+  createTask(input: CreateTaskInput!): Task!
+  updateTask(id: ID!, input: UpdateTaskInput!): Task!
+  assignTask(id: ID!, assigneeId: ID): Task!
+  changeTaskStatus(id: ID!, status: TaskStatus!): Task!
+  deleteTask(id: ID!): Boolean!
+
+  addComment(taskId: ID!, body: String!): Comment!
+}

@@ -30,10 +30,24 @@ hnbg-task-management/
 │   └── mobile/                   # iOS-style mobile prototype
 │       ├── mobile-app.html       # Dashboard + My Tasks phone-frame screens
 │       └── mobile.css            # Mobile-only styles (layered on prototypes/web/styles.css tokens)
-└── components/
-    └── react/
-        ├── CreateTaskForm.jsx        # Framework-agnostic-ish, drop into any React app
-        └── create-task-preview.html  # Zero-build browser preview of the component
+├── components/
+│   └── react/
+│       ├── CreateTaskForm.jsx        # Framework-agnostic-ish, drop into any React app
+│       └── create-task-preview.html  # Zero-build browser preview of the component
+└── backend/                      # FastAPI + Strawberry GraphQL + PostgreSQL scaffold
+    ├── README.md
+    ├── requirements.txt
+    ├── .env.example
+    ├── docker-compose.yml        # api, db (Postgres), redis, worker (Celery)
+    ├── Dockerfile
+    ├── alembic.ini
+    ├── app/
+    │   ├── main.py                # FastAPI app + GraphQL router + auth context
+    │   ├── core/                  # config, db session, JWT/password helpers, Celery app
+    │   ├── models/                # SQLAlchemy: Department, User, Task, Comment
+    │   ├── graphql/                # schema.graphql (SDL reference), Strawberry types/queries/mutations/permissions
+    │   └── services/               # business logic (ticket numbering, etc.)
+    └── migrations/                 # Alembic env.py + versions/
 ```
 
 ## Why this layout
