@@ -1,6 +1,6 @@
 import enum
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from sqlalchemy import Enum, ForeignKey, Sequence, String, Text
 from sqlalchemy.dialects.postgresql import UUID
@@ -91,7 +91,18 @@ class Task(Base):
         Computed, not stored — see "Open questions" in
         docs/BACKEND_ARCHITECTURE.md. Avoids a background job having to
         mutate every row when a due date passes.
+
+        Uses `datetime.now(timezone.utc)` rather than the naive
+        `datetime.utcnow()` — `self.due_at` is timezone-aware (Postgres
+        `TIMESTAMPTZ`, via `Base.type_annotation_map` in
+        app/core/database.py), and comparing a naive datetime against
+        an aware one raises `TypeError: can't compare offset-naive and
+        offset-aware datetimes`. This was the exact same class of bug
+        already fixed at the SQL-binding layer for `due_at` — this
+        property is a plain Python comparison, not a query, so it needed
+        its own fix. Found by actually submitting the Create Task form
+        with a due date, not by any import/compile check.
         """
         if self.due_at is None or self.status == TaskStatus.DONE:
             return False
-        return datetime.utcnow() > self.due_at
+        return datetime.now(timezone.utc) > self.due_at

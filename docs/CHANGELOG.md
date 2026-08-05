@@ -3,6 +3,20 @@
 Design iteration history, most recent first. Dates reflect the session in
 which each change was made.
 
+## Unreleased — is_overdue naive/aware datetime fix
+
+- Fixed `Task.is_overdue` raising `TypeError: can't compare
+  offset-naive and offset-aware datetimes` when creating (or viewing)
+  a task with a due date. Root cause: it compared `datetime.utcnow()`
+  (naive) against `self.due_at`, which has been timezone-aware since
+  the earlier `Base.type_annotation_map` fix (see the "11 columns in
+  7 models" entry above) — that fix covered every SQL-level bind, but
+  this property is a plain Python comparison, not a query, so it
+  needed its own fix. Changed to `datetime.now(timezone.utc)` in
+  `app/models/task.py`. Verified directly against a `Task` instance
+  with an aware `due_at` in the past, in the future, with no due
+  date, and overdue-but-DONE — all four cases now behave correctly.
+
 ## Unreleased — Admin panel frontend
 
 - Built `prototypes/web/admin.html` + `js/admin.js`: a three-tab System
