@@ -21,7 +21,7 @@ from app.models.comment import Comment
 from app.models.notification_log import NotificationTrigger
 from app.models.task import Task, TaskPriority, TaskStatus, ticket_number_seq
 from app.models.user import User
-from app.services.notifications import enqueue_if_needed
+from app.services.notifications import enqueue_assignment_notification, enqueue_if_needed
 from app.services.user_service import USER_EAGER_LOAD  # noqa: F401 (re-exported for callers building User queries alongside tasks)
 
 # Every User nested under a Task (assignee/reporter/comment author) needs the
@@ -77,7 +77,24 @@ async def create_task(db: AsyncSession, *, actor: User, input) -> Task:
     await db.commit()
 
     task = await get_task(db, task.id)
-    enqueue_if_needed(task, NotificationTrigger.TASK_CREATED)
+
+    if task.assignee_id is not None:
+        # Instant, any-priority "you've been assigned this" notification —
+        # see enqueue_assignment_notification's docstring. Covers choosing
+        # an assignee directly in the Create Task form, not just later
+        # reassignment.
+        enqueue_assignment_notification(task)
+        # Skip the separate TASK_CREATED alert for HIGH priority here — its
+        # only recipient would be the assignee (recipients_for_task only
+        # adds managers for URGENT), who's already covered by the line
+        # above, so it'd be a pure duplicate email with a different
+        # subject line. For URGENT, still send it: recipients_for_task
+        # additionally reaches department managers, which the assignment
+        # notification above deliberately does not.
+        if task.priority == TaskPriority.URGENT:
+            enqueue_if_needed(task, NotificationTrigger.TASK_CREATED)
+    else:
+        enqueue_if_needed(task, NotificationTrigger.TASK_CREATED)
     return task
 
 
@@ -85,9 +102,11 @@ async def update_task(db: AsyncSession, *, actor: User, task: Task, input) -> Ta
     """
     Applies `input` fields onto `task`, persists, and enqueues a
     notification only on the two cases that actually warrant an alert:
-    the assignee changed, or the priority was escalated *into*
-    HIGH/URGENT (not on every edit of an already-high-priority ticket,
-    to avoid notification fatigue).
+    the assignee changed (any priority — instant "you've been assigned
+    this" notification, not gated by priority), or the priority was
+    escalated *into* HIGH/URGENT with no assignee change (not on every
+    edit of an already-high-priority ticket, to avoid notification
+    fatigue).
     """
     previously_notifiable = task.priority in NOTIFIABLE_PRIORITIES
     assignee_changed = False
@@ -113,8 +132,9 @@ async def update_task(db: AsyncSession, *, actor: User, task: Task, input) -> Ta
     task = await get_task(db, task.id)
 
     now_notifiable = task.priority in NOTIFIABLE_PRIORITIES
-    if assignee_changed and now_notifiable:
-        enqueue_if_needed(task, NotificationTrigger.TASK_ASSIGNED)
+    if assignee_changed and task.assignee_id is not None:
+        # Any priority — see enqueue_assignment_notification's docstring.
+        enqueue_assignment_notification(task)
     elif not previously_notifiable and now_notifiable:
         enqueue_if_needed(task, NotificationTrigger.PRIORITY_ESCALATED)
 
@@ -135,8 +155,9 @@ async def assign_task(db: AsyncSession, *, task: Task, assignee_id: uuid.UUID | 
     await db.commit()
 
     task = await get_task(db, task.id)
-    if changed and task.priority in NOTIFIABLE_PRIORITIES:
-        enqueue_if_needed(task, NotificationTrigger.TASK_ASSIGNED)
+    if changed and task.assignee_id is not None:
+        # Any priority — see enqueue_assignment_notification's docstring.
+        enqueue_assignment_notification(task)
     return task
 
 

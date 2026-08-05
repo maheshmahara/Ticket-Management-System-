@@ -1,11 +1,20 @@
 """
-SMS + Email notifications for high/urgent priority tickets.
+SMS + Email notifications.
 
-Trigger points (wired into app/services/task_service.py — see the
-`notify_if_high_priority` calls referenced there):
-  - A new task is created with priority HIGH or URGENT.
-  - An existing task is assigned to someone while at HIGH/URGENT priority.
-  - A task's priority is escalated up to HIGH/URGENT.
+Two different gating rules apply depending on *why* a notification is
+firing — this was a deliberate product decision (see CHANGELOG.md):
+
+  - TASK_ASSIGNED (someone is assigned/reassigned a task, including at
+    creation time): fires **instantly, for every priority** — assignment
+    is the "main asset" notification of this system, so it isn't gated
+    by `settings.notify_priority_list` at all. Only the global
+    `NOTIFICATIONS_ENABLED` kill-switch and the recipient's own
+    `notify_email`/`notify_sms` opt-in still apply.
+  - TASK_CREATED / PRIORITY_ESCALATED: unchanged from the original
+    design — only fire for priorities in `settings.notify_priority_list`
+    (defaults to "high,urgent"), and additionally reach the department's
+    managers/admins for URGENT tickets. These are "someone should look
+    at this ticket" alerts, not "this is now your task" alerts.
 
 Design notes (see docs/BACKEND_ARCHITECTURE.md "Notifications" section for
 the full rationale):
@@ -15,9 +24,7 @@ the full rationale):
   - Each attempt is recorded in `notification_logs` *before* the send
     (status=QUEUED) and updated after (SENT/FAILED), so retries don't
     silently double-send and failures are auditable.
-  - Respects each user's `notify_email` / `notify_sms` opt-in flags, and
-    only fires for priorities listed in `settings.notify_priority_list`
-    (defaults to "high,urgent").
+  - Respects each user's `notify_email` / `notify_sms` opt-in flags.
   - The **assignee** is always notified (if assigned); the **department
     manager(s)** are additionally notified for URGENT tickets. (Open
     question: should the reporter also get a confirmation? Left out of v1
@@ -109,10 +116,17 @@ async def _send_task_notifications_async(task_id: str, trigger: NotificationTrig
             .where(Task.id == uuid.UUID(task_id))
         )
         task = result.scalar_one_or_none()
-        if task is None or not should_notify(task.priority):
-            # Priority may have changed (or the task may have been
-            # deleted) since this job was enqueued — re-check rather than
-            # trusting the state at enqueue time.
+        if task is None:
+            return  # deleted since this job was enqueued
+
+        if trigger == NotificationTrigger.TASK_ASSIGNED:
+            # Assignment notifications are unconditional on priority (see
+            # module docstring) — only the master kill-switch applies.
+            if not settings.notifications_enabled:
+                return
+        elif not should_notify(task.priority):
+            # Priority may have changed since this job was enqueued —
+            # re-check rather than trusting the state at enqueue time.
             return
 
         recipients = await recipients_for_task(db, task, trigger)
@@ -138,9 +152,9 @@ async def _send_and_log(
 
     try:
         if channel == NotificationChannel.EMAIL:
-            provider_id = _send_email(to=user.email, subject=_subject(task), body=_body(task, user))
+            provider_id = _send_email(to=user.email, subject=_subject(task, trigger), body=_body(task, user, trigger))
         else:
-            provider_id = _send_sms(to=user.phone_number, body=_sms_body(task))
+            provider_id = _send_sms(to=user.phone_number, body=_sms_body(task, trigger))
 
         log.status = NotificationStatus.SENT
         log.provider_message_id = provider_id
@@ -151,13 +165,28 @@ async def _send_and_log(
         await db.commit()
 
 
-def _subject(task: Task) -> str:
+def _subject(task: Task, trigger: NotificationTrigger) -> str:
+    if trigger == NotificationTrigger.TASK_ASSIGNED:
+        # Deliberately doesn't lead with the priority tag the way the
+        # created/escalated subjects do — this fires for LOW/MEDIUM
+        # tasks too now (see module docstring), and "[LOW] ..." reads
+        # like a demoted alert rather than a plain assignment notice.
+        return f"You've been assigned {task.ticket_no} — {task.title}"
     return f"[{task.priority.value.upper()}] {task.ticket_no} — {task.title}"
 
 
-def _body(task: Task, user: User) -> str:
+def _body(task: Task, user: User, trigger: NotificationTrigger) -> str:
+    first_name = user.full_name.split()[0]
+    if trigger == NotificationTrigger.TASK_ASSIGNED:
+        return (
+            f"Hi {first_name},\n\n"
+            f"You've been assigned ticket {task.ticket_no} ({task.priority.value} priority):\n\n"
+            f"  {task.title}\n\n"
+            f"Due: {task.due_at or 'No due date set'}\n\n"
+            f"— HNBG Task Management System"
+        )
     return (
-        f"Hi {user.full_name.split()[0]},\n\n"
+        f"Hi {first_name},\n\n"
         f"Ticket {task.ticket_no} ({task.priority.value} priority) needs your attention:\n\n"
         f"  {task.title}\n\n"
         f"Due: {task.due_at or 'No due date set'}\n\n"
@@ -165,8 +194,10 @@ def _body(task: Task, user: User) -> str:
     )
 
 
-def _sms_body(task: Task) -> str:
+def _sms_body(task: Task, trigger: NotificationTrigger) -> str:
     # Keep SMS short — most carriers truncate around 160 chars per segment.
+    if trigger == NotificationTrigger.TASK_ASSIGNED:
+        return f"[HNBG] You've been assigned {task.ticket_no}: {task.title[:80]}"
     return f"[HNBG] {task.priority.value.upper()} ticket {task.ticket_no}: {task.title[:80]}"
 
 
@@ -200,8 +231,26 @@ def _send_sms(to: str, body: str) -> str:
 
 def enqueue_if_needed(task: Task, trigger: NotificationTrigger) -> None:
     """
-    Call this from task_service.py after create/update/assign — fire-and-
-    forget enqueue, never awaited inline in a resolver's critical path.
+    Call this from task_service.py for TASK_CREATED / PRIORITY_ESCALATED —
+    priority-gated per `should_notify()`. Fire-and-forget, never awaited
+    inline in a resolver's critical path. Do NOT use this for
+    TASK_ASSIGNED — see `enqueue_assignment_notification` below.
     """
     if should_notify(task.priority):
         send_task_notifications.delay(str(task.id), trigger.value)
+
+
+def enqueue_assignment_notification(task: Task) -> None:
+    """
+    Call this from task_service.py whenever a task ends up with a (new)
+    assignee — at creation with an assignee already chosen, or on a
+    later reassignment. Unlike `enqueue_if_needed`, this is NOT gated by
+    `settings.notify_priority_list`: being assigned a task is the "main
+    asset" notification of this system (explicit product decision — see
+    CHANGELOG.md), so a LOW-priority task assignment notifies the same
+    as a URGENT one. Still respects the global NOTIFICATIONS_ENABLED
+    kill-switch and, downstream, each recipient's own
+    notify_email/notify_sms opt-in.
+    """
+    if settings.notifications_enabled:
+        send_task_notifications.delay(str(task.id), NotificationTrigger.TASK_ASSIGNED.value)

@@ -3,6 +3,57 @@
 Design iteration history, most recent first. Dates reflect the session in
 which each change was made.
 
+## Unreleased — assignment notifications fire for every priority
+
+Explicit product decision (user request): assignment is the "main asset"
+notification of this system, so it should no longer be gated by
+`NOTIFY_PRIORITIES` the way task-created/priority-escalated alerts are —
+a LOW-priority task now emails/texts its assignee exactly the same as a
+URGENT one does, instantly.
+
+- `app/services/notifications.py`: added `enqueue_assignment_notification()`
+  — enqueues `TASK_ASSIGNED` gated only by the global
+  `NOTIFICATIONS_ENABLED` kill-switch, not by priority.
+  `_send_task_notifications_async` now special-cases `TASK_ASSIGNED` to
+  skip the priority recheck it does for other triggers at send time.
+  `TASK_CREATED`/`PRIORITY_ESCALATED` are unchanged — still
+  HIGH/URGENT-only, still additionally reach department managers for
+  URGENT.
+- Trigger-aware email/SMS copy: a `TASK_ASSIGNED` message now reads
+  "You've been assigned TCK-xxxx — <title>" instead of leading with a
+  `[LOW]`/`[MEDIUM]` priority tag that would've read like a demoted
+  alert for what's actually the primary notification type.
+- `app/services/task_service.py`: `create_task` now enqueues the
+  assignment notification whenever an assignee is chosen directly in
+  the Create Task form (previously: no notification at all for
+  LOW/MEDIUM tasks with an assignee set at creation). `assign_task` and
+  `update_task` (reassignment branch) dropped their priority gate
+  entirely in favor of "assignee changed to someone" as the sole
+  condition.
+- Avoided a duplicate email for the common case (HIGH priority +
+  assignee chosen at creation): `create_task` only also fires the
+  separate `TASK_CREATED` alert when priority is URGENT specifically
+  (to still reach managers), since for plain HIGH it would've been a
+  pure duplicate of the assignment email with a different subject line.
+  For URGENT, the assignee still gets both (assignment notice +
+  manager-fanout alert) — a narrower, more defensible edge case than
+  duplicating on every HIGH ticket.
+- Verified against an isolated in-memory SQLite DB with `.delay()`
+  monkeypatched to capture calls instead of touching real Celery/Redis:
+  7 enqueue-decision scenarios (LOW+assignee-at-creation,
+  no-assignee, URGENT dedup, HIGH dedup, reassignment,
+  no-op-reassignment, escalation-only) all matched expected behavior.
+  Separately verified the actual send path end-to-end (mocking
+  `_send_email`) for a LOW-priority `TASK_ASSIGNED`: confirmed it isn't
+  blocked by the send-time priority recheck, the email copy reads
+  correctly, and a `SENT` `NotificationLog` row gets written.
+- Reminder from the prior notification-debugging pass: this only fixes
+  the *decision* to notify — actual delivery still requires real SMTP
+  credentials in `backend/.env` (the placeholder
+  `SMTP_PASSWORD=change-me` won't send anything) and a container
+  recreate (`docker-compose up -d --force-recreate api worker`, not a
+  plain `restart`) to pick up `.env` changes.
+
 ## Unreleased — task-detail status/assignee controls
 
 - Fixed a real gap flagged by the user: `changeTaskStatus` and
