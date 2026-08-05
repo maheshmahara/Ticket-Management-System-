@@ -3,6 +3,34 @@
 Design iteration history, most recent first. Dates reflect the session in
 which each change was made.
 
+## Unreleased — task-detail status/assignee controls
+
+- Fixed a real gap flagged by the user: `changeTaskStatus` and
+  `assignTask` have existed on the backend since the resolvers were
+  first implemented, but no page ever called them — task-detail.html
+  only *displayed* status/assignee, with no way to actually close a
+  ticket or reassign it anywhere in the app.
+  - Added a Status control (select + "Update Status", plus a "Close
+    Ticket" shortcut that's hidden once a task is already DONE) and
+    an Assignee control (select + "Reassign") to task-detail.html's
+    sidebar.
+  - Added `Api.changeTaskStatus` / `Api.assignTask` to js/api.js.
+  - Both actions are still enforced server-side by `can_edit_task`
+    (admin anywhere; manager in-department; member only if
+    assignee/reporter) and, for reassignment, the "members can only
+    assign to themselves" rule — the UI doesn't try to hide these
+    controls from people who can't use them, it just surfaces the
+    resulting error message on click, since there's no cheap way to
+    know from the client whether a given viewer passes `can_edit_task`
+    without either duplicating that logic in JS or adding a new field
+    to expose it (left as a possible follow-up: a `canEdit: Boolean`
+    field on `Task` if this needs to be visually clearer than an
+    error-on-click).
+  - Verified `changeTaskStatus(id: ID!, status: TaskStatus!)` and
+    `assignTask(id: ID!, assigneeId: ID = null)`'s actual schema
+    signatures match what the new client code sends, plus
+    `node --check` and an HTML tag-balance check on the modified page.
+
 ## Unreleased — is_overdue naive/aware datetime fix
 
 - Fixed `Task.is_overdue` raising `TypeError: can't compare

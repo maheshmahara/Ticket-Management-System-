@@ -202,6 +202,26 @@ const Api = {
     return data.createTask;
   },
 
+  async changeTaskStatus(id, status) {
+    const data = await gql(
+      `mutation($id: ID!, $status: TaskStatus!) {
+        changeTaskStatus(id: $id, status: $status) { id status }
+      }`,
+      { id, status }
+    );
+    return data.changeTaskStatus;
+  },
+
+  async assignTask(id, assigneeId) {
+    const data = await gql(
+      `mutation($id: ID!, $assigneeId: ID) {
+        assignTask(id: $id, assigneeId: $assigneeId) { id assignee { id fullName } }
+      }`,
+      { id, assigneeId: assigneeId || null }
+    );
+    return data.assignTask;
+  },
+
   async addComment(taskId, body) {
     const data = await gql(
       `mutation AddComment($taskId: ID!, $body: String!) {

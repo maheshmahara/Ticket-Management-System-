@@ -24,6 +24,19 @@
   .comment { display: flex; gap: 10px; padding: 14px 0; border-top: 1px solid; border-image: linear-gradient(90deg, rgba(28,75,150,0.22), rgba(226,35,28,0.22)) 1; }
   .comment-body { font-size: 13.5px; }
   .comment-meta { font-size: 12px; color: var(--text-tertiary); margin-bottom: 3px; }
+  .side-select {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-strong);
+    font-size: 13.5px;
+    font-family: inherit;
+    background: var(--surface-alt);
+    color: var(--text-primary);
+  }
+  .side-action-row { display: flex; gap: 8px; margin-top: 8px; }
+  .side-action-row .btn { padding: 7px 12px; font-size: 12.5px; }
+  .side-permission-note { font-size: 11.5px; color: var(--text-tertiary); margin-top: 6px; }
 </style>
 </head>
 <body>
@@ -71,6 +84,8 @@
 requireAuth();
 
 const taskId = new URLSearchParams(location.search).get('id');
+let usersCache = null;
+let currentTask = null;
 
 function timeAgo(iso) {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -95,7 +110,58 @@ function renderComment(c) {
   `;
 }
 
+async function populateAssigneeSelect(task) {
+  const select = document.getElementById('assignee-select');
+  if (!select) return;
+  try {
+    if (!usersCache) usersCache = await Api.users();
+    select.innerHTML =
+      '<option value="">Unassigned</option>' +
+      usersCache.map(u => `<option value="${u.id}" ${task.assignee && u.id === task.assignee.id ? 'selected' : ''}>${u.fullName}</option>`).join('');
+  } catch (err) {
+    // Non-fatal — reassigning just won't have a full list to pick from.
+    console.error('Failed to load users for reassignment:', err);
+  }
+}
+
+async function handleStatusUpdate() {
+  const status = document.getElementById('status-select').value;
+  await applyStatusChange(status);
+}
+
+async function handleCloseTicket() {
+  await applyStatusChange('DONE');
+}
+
+async function applyStatusChange(status) {
+  try {
+    await Api.changeTaskStatus(taskId, status);
+    await loadTask();
+  } catch (err) {
+    if (err.code === 'FORBIDDEN' || err.message.includes('logged in')) {
+      logout();
+      return;
+    }
+    alert(`Couldn't update status: ${err.message}`);
+  }
+}
+
+async function handleAssigneeUpdate() {
+  const assigneeId = document.getElementById('assignee-select').value;
+  try {
+    await Api.assignTask(taskId, assigneeId || null);
+    await loadTask();
+  } catch (err) {
+    if (err.code === 'FORBIDDEN' || err.message.includes('logged in')) {
+      logout();
+      return;
+    }
+    alert(`Couldn't reassign: ${err.message}`);
+  }
+}
+
 function renderTask(task) {
+  currentTask = task;
   const statusClass = STATUS_CLASS[task.status] || 'pending';
   const statusLabel = STATUS_LABEL[task.status] || task.status;
   const priorityClass = PRIORITY_CLASS[task.priority] || 'priority-low';
@@ -132,13 +198,29 @@ function renderTask(task) {
       <div class="detail-side">
         <div class="panel">
           <div class="side-block">
+            <div class="side-label">Status</div>
+            <select id="status-select" class="side-select">
+              ${["PENDING", "IN_PROGRESS", "REVIEW", "DONE"]
+                .map((s) => `<option value="${s}" ${s === task.status ? "selected" : ""}>${STATUS_LABEL[s]}</option>`)
+                .join("")}
+            </select>
+            <div class="side-action-row">
+              <button class="btn btn-secondary" onclick="handleStatusUpdate()">Update Status</button>
+              ${task.status !== "DONE" ? '<button class="btn btn-primary" onclick="handleCloseTicket()">Close Ticket</button>' : ""}
+            </div>
+            <div class="side-permission-note">Only the assignee, reporter, an admin, or a manager in this department can change status.</div>
+          </div>
+
+          <div class="side-block">
             <div class="side-label">Assignee</div>
-            <div class="assignee-cell">
-              ${task.assignee
-                ? `<div class="avatar-sm" style="background:${avatarColor(task.assignee)}">${avatarInitials(task.assignee)}</div>${task.assignee.fullName}`
-                : '<span style="color:var(--text-tertiary)">Unassigned</span>'}
+            <select id="assignee-select" class="side-select">
+              <option value="">Unassigned</option>
+            </select>
+            <div class="side-action-row">
+              <button class="btn btn-secondary" onclick="handleAssigneeUpdate()">Reassign</button>
             </div>
           </div>
+
           <div class="side-block">
             <div class="side-label">Priority</div>
             <span class="priority-tag ${priorityClass}">${priorityLabel}</span>
@@ -159,6 +241,8 @@ function renderTask(task) {
       </div>
     </div>
   `;
+
+  populateAssigneeSelect(task);
 }
 
 async function loadTask() {
