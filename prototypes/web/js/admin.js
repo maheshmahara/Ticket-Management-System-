@@ -18,6 +18,7 @@ let businessUnitsCache = [];
 let usersCache = [];
 let kpiCache = null;
 let kpiRangeMode = "week";
+let requestsCache = null;
 
 // --- Guard + sidebar bootstrap ---
 
@@ -56,7 +57,7 @@ let kpiRangeMode = "week";
     // a Manager hitting them would just get a wall of FORBIDDEN errors.
     // The KPI tab is the only one actually meant for them (kpiReport is
     // IsManagerOrAdmin), so land there directly.
-    ["users", "org", "notifications"].forEach((t) => {
+    ["users", "org", "notifications", "requests"].forEach((t) => {
       document.getElementById(`tab-btn-${t}`).style.display = "none";
     });
     document.querySelectorAll("#admin-tabs .pill").forEach((p) => p.classList.remove("active"));
@@ -81,11 +82,13 @@ function setupTabs() {
     document.getElementById("tab-org").style.display = tab === "org" ? "" : "none";
     document.getElementById("tab-notifications").style.display = tab === "notifications" ? "" : "none";
     document.getElementById("tab-kpi").style.display = tab === "kpi" ? "" : "none";
+    document.getElementById("tab-requests").style.display = tab === "requests" ? "" : "none";
 
     if (tab === "users" && usersCache.length === 0) loadUsersTab();
     if (tab === "org") loadOrgTab();
     if (tab === "notifications") loadNotificationsTab();
     if (tab === "kpi" && kpiCache === null) loadKpiTab();
+    if (tab === "requests" && requestsCache === null) loadRequestsTab();
   });
 }
 
@@ -637,3 +640,51 @@ document.getElementById("kpi-range-pills").addEventListener("click", (e) => {
   document.getElementById("kpi-custom-range").style.display = kpiRangeMode === "custom" ? "flex" : "none";
   if (kpiRangeMode !== "custom") loadKpiTab();
 });
+
+// =========================================================
+// PENDING REQUESTS TAB — Admin-only (pendingRoleRequests /
+// respondToRoleRequest are both IsAdmin-gated server-side, not
+// IsManagerOrAdmin like kpiReport — Managers never see this tab, see
+// the tab-hiding array in init() above).
+// =========================================================
+
+function renderRequestRow(u) {
+  return `
+    <div class="admin-user-row" style="grid-template-columns:1.6fr 1fr 1fr 1fr 160px">
+      <div style="font-weight:600">${u.fullName}</div>
+      <span class="role-badge ${u.role.toLowerCase()}">${u.role}</span>
+      <span class="role-badge ${u.requestedRole.toLowerCase()}">${u.requestedRole}</span>
+      <div style="font-size:13px">${u.department ? u.department.name : "—"}</div>
+      <div class="row-actions" style="gap:8px">
+        <button class="btn btn-primary" style="padding:5px 10px;font-size:12.5px" onclick="handleRespondToRequest('${u.id}', true)">Approve</button>
+        <button class="btn btn-secondary" style="padding:5px 10px;font-size:12.5px" onclick="handleRespondToRequest('${u.id}', false)">Deny</button>
+      </div>
+    </div>`;
+}
+
+async function loadRequestsTab() {
+  setTopbarAction("");
+  const rowsEl = document.getElementById("requests-rows");
+  rowsEl.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-tertiary)">Loading…</div>';
+  try {
+    const rows = await Api.pendingRoleRequests();
+    requestsCache = rows;
+    rowsEl.innerHTML = rows.length
+      ? rows.map(renderRequestRow).join("")
+      : '<div style="padding:32px;text-align:center;color:var(--text-tertiary)">No pending role requests.</div>';
+  } catch (err) {
+    if (handleApiError(err)) return;
+    rowsEl.innerHTML = `<div style="padding:32px;text-align:center;color:var(--danger)">Couldn't load requests: ${err.message}</div>`;
+  }
+}
+
+async function handleRespondToRequest(userId, approve) {
+  try {
+    await Api.respondToRoleRequest(userId, approve);
+    requestsCache = null;
+    usersCache = []; // that user's role badge on the Users tab is now stale if approved
+    await loadRequestsTab();
+  } catch (err) {
+    handleApiError(err, "Couldn't update that request");
+  }
+}
