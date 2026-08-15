@@ -73,6 +73,20 @@
             <svg class="aform-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
           </div>
 
+          <div class="aform-field is-static">
+            <select id="duration">
+              <option value="15">15 minutes</option>
+              <option value="30" selected>30 minutes</option>
+              <option value="45">45 minutes</option>
+              <option value="60">1 hour</option>
+              <option value="90">1.5 hours</option>
+              <option value="120">2 hours</option>
+              <option value="180">3 hours</option>
+            </select>
+            <label for="duration">Duration</label>
+            <svg class="aform-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+          </div>
+
           <div class="aform-assignee">
             <div class="aform-assignee-avatar" id="assignee-avatar" style="background:var(--neutral)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
@@ -99,6 +113,24 @@
 <script src="js/api.js"></script>
 <script>
 requireAuth();
+
+/**
+ * calendar.html links here with ?due=<ISO datetime> when you click an
+ * empty day/slot — pre-fills the Due Date field so "click empty space
+ * to create a task" actually works like it does in a real calendar.
+ * A plain visit to this page (no query param, e.g. from the Create Task
+ * button elsewhere) is unaffected. datetime-local inputs need
+ * "YYYY-MM-DDTHH:mm" in *local* time, not a raw ISO string.
+ */
+(function prefillDueFromQueryParam() {
+  const dueParam = new URLSearchParams(location.search).get('due');
+  if (!dueParam) return;
+  const d = new Date(dueParam);
+  if (isNaN(d.getTime())) return;
+  const pad = (n) => String(n).padStart(2, '0');
+  const local = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  document.getElementById('due').value = local;
+})();
 
 let selectedPriority = 'low';
 
@@ -188,6 +220,7 @@ async function handleCreateTaskSubmit(e) {
   const assigneeId = document.getElementById('assignee').value;
   const description = document.getElementById('desc').value.trim();
   const dueRaw = document.getElementById('due').value;
+  const durationMinutes = parseInt(document.getElementById('duration').value, 10);
   const submitBtn = e.target.querySelector('button[type="submit"]');
 
   submitBtn.disabled = true;
@@ -200,6 +233,7 @@ async function handleCreateTaskSubmit(e) {
       departmentId,
       priority: selectedPriority.toUpperCase(),
       dueAt: dueRaw ? new Date(dueRaw).toISOString() : null,
+      durationMinutes,
       assigneeId: assigneeId || null,
     });
     location.href = 'tasks.html';
