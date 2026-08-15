@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import Enum, ForeignKey, Sequence, String, Text
+from sqlalchemy import Enum, ForeignKey, Integer, Sequence, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -76,6 +76,12 @@ class Task(Base):
     )
 
     due_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # How long the task is expected to take, in minutes — sizes its block
+    # on calendar.html's hourly Week grid so time gaps between tasks are
+    # real empty space, not guesswork. Defaults to 30 both here (for rows
+    # inserted outside the GraphQL API) and in CreateTaskInput (the
+    # normal path) — see migrations/versions/0003_task_duration.py.
+    duration_minutes: Mapped[int | None] = mapped_column(Integer, default=30, nullable=True)
     completed_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())

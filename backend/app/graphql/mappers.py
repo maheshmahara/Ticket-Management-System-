@@ -100,6 +100,7 @@ def to_task(task: TaskModel) -> gql.Task:
         assignee=to_user(task.assignee) if task.assignee else None,
         reporter=to_user(task.reporter),
         due_at=task.due_at,
+        duration_minutes=task.duration_minutes,
         is_overdue=task.is_overdue,
         completed_at=task.completed_at,
         created_at=task.created_at,
