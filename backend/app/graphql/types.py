@@ -152,6 +152,16 @@ class DashboardStats:
 
 
 @strawberry.type
+class UserWorkload:
+    """Powers the Kanban board's inline assignee picker — how many open
+    (not-DONE) tickets each candidate assignee already has, platform-wide,
+    regardless of which department's board is being viewed."""
+
+    user: User
+    open_task_count: int
+
+
+@strawberry.type
 class AuthPayload:
     access_token: str
     refresh_token: str

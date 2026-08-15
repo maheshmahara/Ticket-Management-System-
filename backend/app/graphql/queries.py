@@ -26,6 +26,7 @@ from app.graphql.types import (
     TaskFilterInput,
     TaskSortInput,
     User,
+    UserWorkload,
 )
 from app.models.department import Department as DepartmentModel
 from app.models.task import Task as TaskModel
@@ -132,6 +133,32 @@ class Query:
         dept_uuid = uuid.UUID(str(department_id)) if department_id is not None else None
         rows = await list_users(db, department_id=dept_uuid)
         return [to_user(u) for u in rows]
+
+    @strawberry.field(permission_classes=[IsAuthenticated])
+    async def user_workloads(
+        self, info: Info, department_id: Optional[strawberry.ID] = None
+    ) -> list[UserWorkload]:
+        """Powers the Kanban board's inline assignee picker. `department_id`
+        only narrows which *users* are returned as candidates (e.g. only
+        show a department's own staff in that department's board) — the
+        open-ticket count attached to each one is always platform-wide, not
+        scoped to that department, so "is this person already busy?" means
+        the same thing regardless of which board you're looking at."""
+        db = info.context.db
+        dept_uuid = uuid.UUID(str(department_id)) if department_id is not None else None
+        candidates = await list_users(db, department_id=dept_uuid)
+
+        counts_query = (
+            select(TaskModel.assignee_id, func.count())
+            .where(TaskModel.assignee_id.is_not(None), TaskModel.status != TaskStatus.DONE)
+            .group_by(TaskModel.assignee_id)
+        )
+        counts = dict((await db.execute(counts_query)).all())
+
+        return [
+            UserWorkload(user=to_user(u), open_task_count=counts.get(u.id, 0))
+            for u in candidates
+        ]
 
     @strawberry.field(permission_classes=[IsAuthenticated])
     async def task(self, info: Info, id: strawberry.ID) -> Optional[Task]:

@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Board — HNBG</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="hnbg-mark.png" alt="HNBG" class="brand-logo" />
+      <div class="brand-text">
+        <div class="brand-tagline"><span class="c-blue">Hokkaido</span> <span class="c-blue">Nepal</span> <span class="c-red">Business</span> <span class="c-red">Group</span></div>
+        <div class="brand-subtitle"><span class="c-blue">HN</span><span class="c-red">BG</span> <span class="brand-tms">TMS</span></div>
+      </div>
+    </div>
+
+    <nav class="nav-section">
+      <div class="nav-label">Workspace</div>
+      <a class="nav-item" href="dashboard.html">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dashboard
+      </a>
+      <a class="nav-item" href="tasks.html">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        My Tasks
+        <span class="count-badge" id="nav-mytasks-count">–</span>
+      </a>
+      <a class="nav-item active" href="board.html">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="10" rx="1"/><rect x="17" y="4" width="5" height="13" rx="1"/></svg>
+        Board
+      </a>
+      <a class="nav-item" href="#">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        Calendar
+      </a>
+      <a class="nav-item" href="#">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        Timeline
+      </a>
+    </nav>
+
+    <nav class="nav-section" id="nav-admin-section" style="display:none">
+      <div class="nav-label">System</div>
+      <a class="nav-item" href="admin.html">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 8v4l3 3"/></svg>
+        Admin Panel
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="user-chip" onclick="logout()" style="cursor:pointer" title="Sign out">
+        <div class="avatar" id="sidebar-avatar">TL</div>
+        <div class="user-meta">
+          <div class="user-name" id="sidebar-name">Loading…</div>
+          <div class="user-role" id="sidebar-role">—</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <header class="topbar">
+      <div class="page-title">Board</div>
+      <div class="topbar-right">
+        <button class="btn btn-ghost" onclick="location.href='tasks.html'">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          List view
+        </button>
+        <button class="btn btn-primary" onclick="location.href='create-task.html'">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          Create Task
+        </button>
+      </div>
+    </header>
+
+    <div class="content" style="max-width:none">
+      <div class="kanban-board" id="kanban-board">
+        <div style="padding:32px;color:var(--text-tertiary)">Loading board…</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="kanban-toast" id="kanban-toast"></div>
+
+<script src="js/api.js"></script>
+<script>
+requireAuth();
+
+const COLUMNS = [
+  { status: 'PENDING', label: 'Pending', dotClass: 'pending' },
+  { status: 'IN_PROGRESS', label: 'In Progress', dotClass: 'progress' },
+  { status: 'REVIEW', label: 'Review', dotClass: 'review' },
+  { status: 'DONE', label: 'Done', dotClass: 'done' },
+];
+
+let workloads = [];   // [{ openTaskCount, user }]
+let toastTimer = null;
+
+function showToast(message) {
+  const el = document.getElementById('kanban-toast');
+  el.textContent = message;
+  el.classList.add('visible');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('visible'), 4000);
+}
+
+function assigneeOptionsHtml(selectedId) {
+  const opts = ['<option value="">Unassigned</option>'];
+  for (const w of workloads) {
+    const selected = w.user.id === selectedId ? ' selected' : '';
+    opts.push(`<option value="${w.user.id}"${selected}>${w.user.fullName} (${w.openTaskCount} open)</option>`);
+  }
+  return opts.join('');
+}
+
+function cardHtml(task) {
+  const priorityClass = PRIORITY_CLASS[task.priority] || 'priority-low';
+  const priorityLabel = PRIORITY_LABEL[task.priority] || task.priority;
+  return `
+    <div class="kanban-card" draggable="true" data-task-id="${task.id}" data-status="${task.status}" onclick="location.href='task-detail.html?id=${task.id}'">
+      <div class="kanban-card-ticket">#${task.ticketNo}</div>
+      <div class="kanban-card-title">${task.title}</div>
+      <div class="kanban-card-foot">
+        <span class="priority-tag ${priorityClass}">${priorityLabel}</span>
+        <select class="kanban-assignee-select" data-task-id="${task.id}" onclick="event.stopPropagation()" onchange="handleAssigneeChange(event)">
+          ${assigneeOptionsHtml(task.assignee ? task.assignee.id : null)}
+        </select>
+      </div>
+    </div>
+  `;
+}
+
+function renderBoard(tasks) {
+  const board = document.getElementById('kanban-board');
+  board.innerHTML = COLUMNS.map(col => {
+    const colTasks = tasks.filter(t => t.status === col.status);
+    return `
+      <div class="kanban-column">
+        <div class="kanban-column-head">
+          <div class="kanban-column-title"><span class="status-dot ${col.dotClass}"></span>${col.label}</div>
+          <span class="kanban-column-count">${colTasks.length}</span>
+        </div>
+        <div class="kanban-column-body" data-status="${col.status}">
+          ${colTasks.map(cardHtml).join('')}
+        </div>
+      </div>
+    `;
+  }).join('');
+
+  wireDragAndDrop();
+}
+
+function updateColumnCounts() {
+  document.querySelectorAll('.kanban-column').forEach(col => {
+    const count = col.querySelectorAll('.kanban-card').length;
+    col.querySelector('.kanban-column-count').textContent = count;
+  });
+}
+
+function wireDragAndDrop() {
+  document.querySelectorAll('.kanban-card').forEach(card => {
+    card.addEventListener('dragstart', (e) => {
+      if (card.dataset.syncing === '1') { e.preventDefault(); return; }
+      e.dataTransfer.setData('text/plain', card.dataset.taskId);
+      e.dataTransfer.effectAllowed = 'move';
+      card.classList.add('dragging');
+    });
+    card.addEventListener('dragend', () => card.classList.remove('dragging'));
+  });
+
+  document.querySelectorAll('.kanban-column-body').forEach(body => {
+    body.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      body.classList.add('drag-over');
+    });
+    body.addEventListener('dragleave', () => body.classList.remove('drag-over'));
+    body.addEventListener('drop', (e) => {
+      e.preventDefault();
+      body.classList.remove('drag-over');
+      const taskId = e.dataTransfer.getData('text/plain');
+      const card = document.querySelector(`.kanban-card[data-task-id="${taskId}"]`);
+      if (!card) return;
+      const newStatus = body.dataset.status;
+      const oldStatus = card.dataset.status;
+      if (newStatus === oldStatus) return;
+      const fromBody = card.parentElement;
+      moveCard(taskId, newStatus, card, fromBody, body);
+    });
+  });
+}
+
+async function moveCard(taskId, newStatus, cardEl, fromBody, toBody) {
+  const oldStatus = cardEl.dataset.status;
+  cardEl.dataset.syncing = '1';
+  cardEl.classList.add('is-syncing');
+  toBody.appendChild(cardEl);          // optimistic move
+  cardEl.dataset.status = newStatus;
+  updateColumnCounts();
+
+  try {
+    await Api.changeTaskStatus(taskId, newStatus);
+  } catch (err) {
+    if (err.code === 'FORBIDDEN' || err.message.includes('logged in')) {
+      logout();
+      return;
+    }
+    fromBody.appendChild(cardEl);      // rollback
+    cardEl.dataset.status = oldStatus;
+    updateColumnCounts();
+    showToast(`Couldn't move #${cardEl.querySelector('.kanban-card-ticket').textContent.slice(1)}: ${err.message}`);
+  } finally {
+    cardEl.dataset.syncing = '0';
+    cardEl.classList.remove('is-syncing');
+  }
+}
+
+async function handleAssigneeChange(e) {
+  const select = e.target;
+  const taskId = select.dataset.taskId;
+  const newAssigneeId = select.value || null;
+
+  select.disabled = true;
+  try {
+    await Api.assignTask(taskId, newAssigneeId);
+    // Reflect the reassignment in local workload counts without a full
+    // reload, so consecutive reassigns on the same board see fresh counts.
+    workloads.forEach(w => {
+      if (w.user.id === newAssigneeId) w.openTaskCount += 1;
+      else if (w.user.id === select.dataset.previousAssignee) w.openTaskCount = Math.max(0, w.openTaskCount - 1);
+    });
+    select.dataset.previousAssignee = newAssigneeId || '';
+  } catch (err) {
+    if (err.code === 'FORBIDDEN' || err.message.includes('logged in')) {
+      logout();
+      return;
+    }
+    select.value = select.dataset.previousAssignee || '';
+    showToast(`Couldn't reassign: ${err.message}`);
+  } finally {
+    select.disabled = false;
+  }
+}
+
+async function loadBoard() {
+  const boardEl = document.getElementById('kanban-board');
+  try {
+    const [tasks, workloadResult] = await Promise.all([Api.boardTasks(), Api.userWorkloads()]);
+    workloads = workloadResult;
+    renderBoard(tasks);
+    document.querySelectorAll('.kanban-assignee-select').forEach(sel => {
+      sel.dataset.previousAssignee = sel.value;
+    });
+  } catch (err) {
+    if (err.code === 'FORBIDDEN' || err.message.includes('logged in')) {
+      logout();
+      return;
+    }
+    boardEl.innerHTML = `<div style="padding:32px;color:var(--danger)">Couldn't load the board: ${err.message}</div>`;
+  }
+}
+
+(async function init() {
+  try {
+    const me = await Api.me();
+    document.getElementById('sidebar-name').textContent = me.fullName;
+    document.getElementById('sidebar-role').textContent = me.department ? me.department.name : me.role;
+    document.getElementById('sidebar-avatar').textContent = me.initials;
+    document.getElementById('sidebar-avatar').style.background = me.avatarColor;
+    if (me.role === 'ADMIN') document.getElementById('nav-admin-section').style.display = '';
+  } catch (err) {
+    if (err.code === 'FORBIDDEN' || err.message.includes('logged in')) {
+      logout();
+      return;
+    }
+  }
+  Api.myTasksBadgeCount()
+    .then(count => { document.getElementById('nav-mytasks-count').textContent = count; })
+    .catch(() => {});
+  loadBoard();
+})();
+</script>
+</body>
+</html>

@@ -188,6 +188,51 @@ const Api = {
     return data.tasks;
   },
 
+  /**
+   * Lean projection for board.html's Kanban view — decoupled from
+   * `Api.tasks()`'s heavier per-row shape (department/reporter, hardcoded
+   * page size) since the board just needs enough per card to render it
+   * and doesn't paginate. `first: 200` is a flat ceiling, not real
+   * pagination — a kanban board has no obvious "page 2" UX, so any single
+   * org with more than 200 open+closed tasks in view would silently miss
+   * some. Acceptable for this prototype's scale.
+   */
+  async boardTasks() {
+    const data = await gql(
+      `query BoardTasks {
+        tasks(page: { first: 200 }) {
+          edges {
+            node {
+              id ticketNo title status priority
+              assignee { id fullName initials avatarColor }
+            }
+          }
+        }
+      }`
+    );
+    return data.tasks.edges.map(e => e.node);
+  },
+
+  /**
+   * Powers the board's inline assignee picker: every candidate assignee
+   * plus their current platform-wide open-ticket count, so you can see
+   * who's already busy before reassigning. `departmentId` only narrows
+   * which people are returned as candidates — the workload count itself
+   * is always org-wide (see queries.py's user_workloads resolver).
+   */
+  async userWorkloads(departmentId) {
+    const data = await gql(
+      `query UserWorkloads($departmentId: ID) {
+        userWorkloads(departmentId: $departmentId) {
+          openTaskCount
+          user { id fullName initials avatarColor }
+        }
+      }`,
+      { departmentId: departmentId || null }
+    );
+    return data.userWorkloads;
+  },
+
   async task(id) {
     const data = await gql(
       `query Task($id: ID!) {
