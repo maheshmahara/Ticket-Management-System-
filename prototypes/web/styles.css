@@ -307,9 +307,32 @@ input:-webkit-autofill:active {
   padding: 8px 10px;
   border-radius: var(--radius-sm);
   transition: background 0.15s var(--ease);
+  /* .user-chip is an <a href="my-profile.html"> — carry over the plain
+     div styling it had before sign-out moved to its own button. */
+  text-decoration: none;
+  color: inherit;
 }
 
 .user-chip:hover { background: var(--fill-1); }
+
+.sidebar-signout-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  margin-top: 6px;
+  padding: 7px 10px;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  font-size: 12px;
+  font-weight: 500;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+
+.sidebar-signout-btn:hover { background: var(--danger-soft); color: var(--danger); }
 
 .avatar {
   width: 32px;
@@ -1555,3 +1578,103 @@ input:-webkit-autofill:active {
 @media (max-width: 980px) {
   .kanban-column { min-width: 240px; }
 }
+
+/* ============================================
+   My Profile (my-profile.html)
+   ============================================ */
+
+.profile-onboarding-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 20px;
+  margin-bottom: 20px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 13.5px;
+}
+
+.profile-header {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding: 24px;
+  margin-bottom: 20px;
+}
+
+.profile-photo-frame {
+  position: relative;
+  width: 88px;
+  height: 88px;
+  flex-shrink: 0;
+}
+
+.profile-photo {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+  background: var(--fill-1);
+}
+
+.profile-photo-fallback {
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: linear-gradient(145deg, #1c4b96, #e2231c);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.profile-photo-edit {
+  position: absolute;
+  bottom: -2px;
+  right: -2px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: white;
+  border: 2px solid var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.profile-photo-edit:hover { background: var(--accent-hover); }
+
+.profile-identity { min-width: 0; }
+.profile-name { font-size: 19px; font-weight: 700; letter-spacing: -0.01em; }
+.profile-email { font-size: 13px; color: var(--text-tertiary); margin: 2px 0 8px; }
+.profile-remove-photo { font-size: 12px; color: var(--danger); font-weight: 500; margin-top: 6px; }
+
+.role-request-pill {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: var(--warning-soft);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.role-request-pill a { color: var(--accent); font-weight: 600; }
+
+.profile-save-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.profile-saved-msg { font-size: 12.5px; color: var(--success); font-weight: 600; }
