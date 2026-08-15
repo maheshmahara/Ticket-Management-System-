@@ -8,20 +8,45 @@
 <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
 <style>
   :root {
+    color-scheme: light dark;
     --bg: #f5f5f7;
     --surface: #ffffff;
     --surface-alt: #fbfbfd;
-    --border: rgba(0,0,0,0.08);
-    --border-strong: rgba(0,0,0,0.12);
+    --border: rgba(0,0,0,0.09);
+    --border-strong: rgba(0,0,0,0.14);
     --text-primary: #1d1d1f;
     --text-secondary: #6e6e73;
     --text-tertiary: #86868b;
     --accent: #1c4b96;
+    --accent-soft: rgba(28,75,150,0.08);
     --danger: #e2231c;
+    --fill-1: rgba(120,120,128,0.08);
+    --fill-2: rgba(120,120,128,0.12);
+    --sidebar-bg: rgba(251,251,253,0.9);
     --code-bg: #f5f5f7;
     --radius-lg: 22px;
     --radius-md: 16px;
     --radius-sm: 10px;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #000000;
+      --surface: #1c1c1e;
+      --surface-alt: #232326;
+      --border: rgba(255,255,255,0.1);
+      --border-strong: rgba(255,255,255,0.16);
+      --text-primary: #f5f5f7;
+      --text-secondary: #98989d;
+      --text-tertiary: #6e6e73;
+      --accent: #4c8bdf;
+      --accent-soft: rgba(76,139,223,0.14);
+      --danger: #ff453a;
+      --fill-1: rgba(120,120,128,0.18);
+      --fill-2: rgba(120,120,128,0.24);
+      --sidebar-bg: rgba(28,28,30,0.85);
+      --code-bg: #232326;
+    }
   }
 
   * { box-sizing: border-box; }
@@ -40,9 +65,8 @@
   .sidebar {
     width: 260px;
     flex-shrink: 0;
-    background: rgba(251,251,253,0.9);
-    border-right: 1.5px solid;
-    border-image: linear-gradient(180deg, rgba(28,75,150,0.4), rgba(226,35,28,0.4)) 1;
+    background: var(--sidebar-bg);
+    border-right: 1px solid var(--border);
     padding: 24px 16px;
     position: sticky;
     top: 0;
@@ -74,8 +98,8 @@
     margin-bottom: 2px;
     transition: background 0.15s ease, color 0.15s ease;
   }
-  .nav-item:hover { background: rgba(0,0,0,0.045); color: var(--text-primary); }
-  .nav-item.active { background: rgba(28,75,150,0.1); color: var(--accent); font-weight: 600; }
+  .nav-item:hover { background: var(--fill-1); color: var(--text-primary); }
+  .nav-item.active { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
   /* Main */
   .main { flex: 1; min-width: 0; display: flex; justify-content: center; padding: 48px 32px 100px; }
@@ -83,9 +107,7 @@
     width: 100%;
     max-width: 780px;
     background: var(--surface);
-    border: 1.5px solid transparent;
-    background: linear-gradient(var(--surface), var(--surface)) padding-box,
-                linear-gradient(160deg, rgba(28,75,150,0.35), rgba(226,35,28,0.35)) border-box;
+    border: 1px solid var(--border);
     border-radius: var(--radius-lg);
     box-shadow: 0 12px 40px rgba(0,0,0,0.08);
     padding: 48px 52px 60px;
@@ -95,7 +117,7 @@
   .doc h2 {
     font-size: 20px; font-weight: 700; letter-spacing: -0.01em;
     margin: 40px 0 14px; padding-bottom: 10px;
-    border-bottom: 1.5px solid; border-image: linear-gradient(90deg, rgba(28,75,150,0.3), rgba(226,35,28,0.3)) 1;
+    border-bottom: 1px solid var(--border);
   }
   .doc h3 { font-size: 16px; font-weight: 700; margin: 26px 0 10px; }
   .doc p { font-size: 14.5px; line-height: 1.7; color: var(--text-secondary); margin: 0 0 14px; }
@@ -105,7 +127,7 @@
   .doc strong { color: var(--text-primary); font-weight: 700; }
   .doc blockquote {
     margin: 0 0 18px; padding: 12px 16px;
-    background: rgba(28,75,150,0.06);
+    background: var(--accent-soft);
     border-left: 3px solid var(--accent);
     border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
     color: var(--text-secondary);
@@ -117,7 +139,7 @@
     text-align: left; padding: 9px 12px; background: var(--surface-alt);
     font-weight: 700; font-size: 11px; text-transform: uppercase; letter-spacing: 0.04em;
     color: var(--text-tertiary);
-    border-bottom: 1.5px solid; border-image: linear-gradient(90deg, rgba(28,75,150,0.3), rgba(226,35,28,0.3)) 1;
+    border-bottom: 1px solid var(--border);
   }
   .doc td {
     padding: 9px 12px; border-bottom: 1px solid var(--border); color: var(--text-secondary);
@@ -131,7 +153,7 @@
     border-radius: 5px;
     font-size: 12.5px;
     font-family: "SF Mono", Menlo, Consolas, monospace;
-    color: #ad1625;
+    color: var(--danger);
   }
 
   .doc pre {
@@ -219,7 +241,7 @@ async function loadDoc(src, title) {
 
   if (typeof marked === "undefined") {
     docEl.innerHTML =
-      '<p style="color:#e2231c"><strong>The markdown renderer (marked.js) didn\'t load</strong> — ' +
+      '<p style="color:var(--danger)"><strong>The markdown renderer (marked.js) didn\'t load</strong> — ' +
       'likely a blocked/offline CDN. Check your internet connection and reload. ' +
       'You can still open the raw file directly: <code>' + src + '</code>.</p>';
     return;
@@ -232,12 +254,12 @@ async function loadDoc(src, title) {
     const hint = isFileProtocol()
       ? 'You opened this file directly (file://) — browsers block fetch() of local files that way. Serve this folder over HTTP instead: <code>python3 -m http.server 8000</code> from the repo root, then open <code>http://localhost:8000/docs/preview.html</code>.'
       : 'Network request failed. Check the console for details.';
-    docEl.innerHTML = '<p style="color:#e2231c"><strong>Could not load ' + src + '.</strong><br>' + hint + '</p>';
+    docEl.innerHTML = '<p style="color:var(--danger)"><strong>Could not load ' + src + '.</strong><br>' + hint + '</p>';
     return;
   }
 
   if (!res.ok) {
-    docEl.innerHTML = '<p style="color:#e2231c">Could not load ' + src + ' (HTTP ' + res.status + ').</p>';
+    docEl.innerHTML = '<p style="color:var(--danger)">Could not load ' + src + ' (HTTP ' + res.status + ').</p>';
     return;
   }
 
@@ -280,7 +302,7 @@ loadDoc(initial.dataset.src, initial.dataset.title);
 setTimeout(() => {
   if (docEl.querySelector(".loading")) {
     docEl.innerHTML =
-      '<p style="color:#e2231c"><strong>Still loading?</strong> This page needs internet access ' +
+      '<p style="color:var(--danger)"><strong>Still loading?</strong> This page needs internet access ' +
       '(for marked.js/mermaid.js) and must be served over HTTP, not opened as a file:// path. ' +
       'Run <code>python3 -m http.server 8000</code> from the repo root and open ' +
       '<code>http://localhost:8000/docs/preview.html</code>.</p>';

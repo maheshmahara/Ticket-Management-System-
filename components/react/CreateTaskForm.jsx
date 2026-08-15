@@ -12,10 +12,18 @@ import {
 /**
  * CreateTaskForm
  * -----------------------------------------------------------------------
- * A self-contained, production-ready "Create Task" form built in the
- * spirit of Apple's Human Interface Guidelines: clean neutral surfaces,
- * restrained color (single blue accent), floating labels, grouped
- * sections separated by hairline dividers, and quiet micro-interactions.
+ * A self-contained, production-ready "Create Task" form built on the same
+ * Apple HIG–compatible resources as the rest of the prototype
+ * (prototypes/web/styles.css, docs/DESIGN_SYSTEM.md): the San Francisco
+ * system-font stack, the HNBG brand mapped onto Apple System Colors with
+ * distinct light/dark values, the Apple System Fill Color hierarchy for
+ * neutral surfaces, floating labels, hairline-divided groups, and quiet
+ * micro-interactions.
+ *
+ * Dark mode uses Tailwind's `dark:` variant, which defaults to the
+ * `media` strategy (follows `prefers-color-scheme`) unless the host
+ * app's tailwind.config.js sets `darkMode: 'class'` — either works here
+ * unmodified.
  *
  * Usage:
  *   <CreateTaskForm
@@ -35,20 +43,24 @@ const PROJECTS = [
   { value: "mobile-app-v2", label: "Mobile App v2" },
 ];
 
+// Avatar accents reuse the same per-person palette as the rest of the
+// app (see prototypes/web/*.html avatar-sm examples) — brand blue for
+// the primary accent instead of a generic system blue.
 const ASSIGNEES = [
   { value: "", label: "Unassigned", initials: "—", color: "#8e8e93" },
-  { value: "maria-j", label: "Maria J.", initials: "MJ", color: "#0071e3" },
+  { value: "maria-j", label: "Maria J.", initials: "MJ", color: "#1c4b96" },
   { value: "ravi-k", label: "Ravi K.", initials: "RK", color: "#f2a900" },
   { value: "dan-t", label: "Dan T.", initials: "DT", color: "#1db954" },
   { value: "emma-w", label: "Emma W.", initials: "EW", color: "#e2231c" },
   { value: "sara-l", label: "Sara L.", initials: "SL", color: "#af52de" },
 ];
 
+// Same neutral → red severity ramp as the dashboard's status cards.
 const PRIORITIES = [
   { value: "low", label: "Low", dot: "#8e8e93" },
   { value: "medium", label: "Medium", dot: "#f2a900" },
-  { value: "high", label: "High", dot: "#ff9500" },
-  { value: "urgent", label: "Urgent", dot: "#e30000" },
+  { value: "high", label: "High", dot: "#ff6961" },
+  { value: "urgent", label: "Urgent", dot: "#e2231c" },
 ];
 
 const initialState = {
@@ -101,23 +113,23 @@ export default function CreateTaskForm({ onSubmit, onCancel }) {
     ASSIGNEES.find((a) => a.value === form.assignee) || ASSIGNEES[0];
 
   return (
-    <div className="min-h-screen w-full bg-[#f5f5f7] flex items-center justify-center p-6 font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Text','SF_Pro_Display',sans-serif]">
+    <div className="min-h-screen w-full bg-[#f5f5f7] dark:bg-black flex items-center justify-center p-6 font-[-apple-system,BlinkMacSystemFont,'SF_Pro_Text','SF_Pro_Display',sans-serif]">
       <form
         onSubmit={handleSubmit}
         noValidate
-        className="w-full max-w-[560px] bg-white rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.12)] border border-[#d2d2d7] overflow-hidden"
+        className="w-full max-w-[560px] bg-white dark:bg-[#1c1c1e] rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.12)] dark:shadow-[0_20px_60px_rgba(0,0,0,0.5)] border border-[#d2d2d7] dark:border-white/10 overflow-hidden"
       >
         {/* ---------------- Header ---------------- */}
         <div className="flex items-start justify-between gap-4 px-7 pt-7 pb-5">
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#0071e3]/10 text-[#0071e3]">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[#1c4b96]/10 dark:bg-[#4c8bdf]/15 text-[#1c4b96] dark:text-[#4c8bdf]">
               <ClipboardList size={20} strokeWidth={2} />
             </div>
             <div>
-              <h1 className="text-[17px] font-semibold tracking-[-0.01em] text-[#1d1d1f]">
+              <h1 className="text-[17px] font-semibold tracking-[-0.01em] text-[#1d1d1f] dark:text-[#f5f5f7]">
                 Create New Task
               </h1>
-              <p className="mt-0.5 text-[13px] text-[#86868b]">
+              <p className="mt-0.5 text-[13px] text-[#86868b] dark:text-[#6e6e73]">
                 Set details, ownership, and target timelines.
               </p>
             </div>
@@ -128,7 +140,7 @@ export default function CreateTaskForm({ onSubmit, onCancel }) {
               type="button"
               onClick={onCancel}
               aria-label="Close"
-              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#86868b] transition-colors duration-150 hover:bg-[#f5f5f7] hover:text-[#1d1d1f] active:bg-[#e8e8ed]"
+              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[#86868b] dark:text-[#98989d] transition-colors duration-150 hover:bg-[#f5f5f7] dark:hover:bg-white/10 hover:text-[#1d1d1f] dark:hover:text-[#f5f5f7] active:bg-[#e8e8ed] dark:active:bg-white/15"
             >
               <X size={15} strokeWidth={2} />
             </button>
@@ -137,7 +149,7 @@ export default function CreateTaskForm({ onSubmit, onCancel }) {
 
         <div className="max-h-[70vh] overflow-y-auto px-7 pb-2">
           {/* ---------------- Task Details Group ---------------- */}
-          <fieldset className="rounded-2xl border border-[#d2d2d7] divide-y divide-[#d2d2d7] overflow-hidden">
+          <fieldset className="rounded-2xl border border-[#d2d2d7] dark:border-white/10 divide-y divide-[#d2d2d7] dark:divide-white/10 overflow-hidden">
             <legend className="sr-only">Task details</legend>
 
             {/* Task Title (floating label) */}
@@ -152,8 +164,8 @@ export default function CreateTaskForm({ onSubmit, onCancel }) {
                 placeholder=" "
                 aria-invalid={showError("title")}
                 aria-describedby={showError("title") ? "task-title-error" : undefined}
-                className={`peer w-full bg-transparent text-[15px] text-[#1d1d1f] outline-none pt-2 pb-1 placeholder-transparent transition-colors duration-150
-                  ${showError("title") ? "border-b border-[#e30000]" : "border-b border-transparent"}`}
+                className={`peer w-full bg-transparent text-[15px] text-[#1d1d1f] dark:text-[#f5f5f7] outline-none pt-2 pb-1 placeholder-transparent transition-colors duration-150
+                  ${showError("title") ? "border-b border-[#e2231c]" : "border-b border-transparent"}`}
               />
               <label
                 htmlFor="task-title"
@@ -161,7 +173,7 @@ export default function CreateTaskForm({ onSubmit, onCancel }) {
                   peer-placeholder-shown:top-5 peer-placeholder-shown:text-[15px]
                   peer-focus:top-1 peer-focus:text-[11px]
                   peer-[&:not(:placeholder-shown)]:top-1 peer-[&:not(:placeholder-shown)]:text-[11px]
-                  ${showError("title") ? "text-[#e30000] peer-focus:text-[#e30000]" : "text-[#86868b] peer-focus:text-[#06c]"}`}
+                  ${showError("title") ? "text-[#e2231c] peer-focus:text-[#e2231c]" : "text-[#86868b] dark:text-[#98989d] peer-focus:text-[#1c4b96] dark:peer-focus:text-[#4c8bdf]"}`}
               >
                 Task Title
               </label>
@@ -169,7 +181,7 @@ export default function CreateTaskForm({ onSubmit, onCancel }) {
               {showError("title") && (
                 <p
                   id="task-title-error"
-                  className="mt-1.5 flex items-center gap-1.5 text-[12px] font-medium text-[#e30000]"
+                  className="mt-1.5 flex items-center gap-1.5 text-[12px] font-medium text-[#e2231c] dark:text-[#ff453a]"
                 >
                   <AlertCircle size={13} strokeWidth={2.2} />
                   {errors.title}
@@ -189,13 +201,13 @@ export default function CreateTaskForm({ onSubmit, onCancel }) {
                   e.target.style.height = `${e.target.scrollHeight}px`;
                 }}
                 placeholder=" "
-                className="peer w-full resize-none overflow-hidden bg-transparent text-[15px] leading-relaxed text-[#1d1d1f] outline-none pt-2 pb-1 placeholder-transparent"
+                className="peer w-full resize-none overflow-hidden bg-transparent text-[15px] leading-relaxed text-[#1d1d1f] dark:text-[#f5f5f7] outline-none pt-2 pb-1 placeholder-transparent"
               />
               <label
                 htmlFor="task-description"
-                className="pointer-events-none absolute left-4 top-5 text-[15px] text-[#86868b] transition-all duration-150 ease-out
+                className="pointer-events-none absolute left-4 top-5 text-[15px] text-[#86868b] dark:text-[#98989d] transition-all duration-150 ease-out
                   peer-placeholder-shown:top-5 peer-placeholder-shown:text-[15px]
-                  peer-focus:top-1 peer-focus:text-[11px] peer-focus:text-[#06c]
+                  peer-focus:top-1 peer-focus:text-[11px] peer-focus:text-[#1c4b96] dark:peer-focus:text-[#4c8bdf]
                   peer-[&:not(:placeholder-shown)]:top-1 peer-[&:not(:placeholder-shown)]:text-[11px]"
               >
                 Description
@@ -204,7 +216,7 @@ export default function CreateTaskForm({ onSubmit, onCancel }) {
           </fieldset>
 
           {/* ---------------- Configuration & Metadata Group ---------------- */}
-          <fieldset className="mt-5 rounded-2xl border border-[#d2d2d7] divide-y divide-[#d2d2d7] overflow-hidden">
+          <fieldset className="mt-5 rounded-2xl border border-[#d2d2d7] dark:border-white/10 divide-y divide-[#d2d2d7] dark:divide-white/10 overflow-hidden">
             <legend className="sr-only">Task configuration</legend>
 
             {/* Category / Project */}
@@ -213,7 +225,7 @@ export default function CreateTaskForm({ onSubmit, onCancel }) {
                 id="task-project"
                 value={form.project}
                 onChange={update("project")}
-                className="peer w-full appearance-none bg-transparent pt-2 pb-1 pr-6 text-[15px] text-[#1d1d1f] outline-none"
+                className="peer w-full appearance-none bg-transparent pt-2 pb-1 pr-6 text-[15px] text-[#1d1d1f] dark:text-[#f5f5f7] outline-none [color-scheme:light] dark:[color-scheme:dark]"
               >
                 {PROJECTS.map((p) => (
                   <option key={p.value} value={p.value}>
@@ -223,27 +235,27 @@ export default function CreateTaskForm({ onSubmit, onCancel }) {
               </select>
               <label
                 htmlFor="task-project"
-                className="pointer-events-none absolute left-4 top-1 text-[11px] text-[#86868b]"
+                className="pointer-events-none absolute left-4 top-1 text-[11px] text-[#86868b] dark:text-[#98989d]"
               >
                 Project
               </label>
               <ChevronDown
                 size={16}
                 strokeWidth={2}
-                className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#86868b]"
+                className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#86868b] dark:text-[#98989d]"
               />
             </div>
 
             {/* Priority — segmented control */}
             <div className="px-4 py-4">
-              <span className="mb-2 flex items-center gap-1.5 text-[11px] font-medium text-[#86868b]">
+              <span className="mb-2 flex items-center gap-1.5 text-[11px] font-medium text-[#86868b] dark:text-[#98989d]">
                 <Flag size={12} strokeWidth={2} />
                 Priority
               </span>
               <div
                 role="radiogroup"
                 aria-label="Priority level"
-                className="inline-flex w-full gap-1 rounded-[10px] bg-[#f5f5f7] p-1"
+                className="inline-flex w-full gap-1 rounded-[10px] bg-[rgba(120,120,128,0.08)] dark:bg-[rgba(120,120,128,0.18)] p-1"
               >
                 {PRIORITIES.map((p) => {
                   const active = form.priority === p.value;
@@ -257,8 +269,8 @@ export default function CreateTaskForm({ onSubmit, onCancel }) {
                       className={`flex flex-1 items-center justify-center gap-1.5 rounded-[8px] py-1.5 text-[13px] font-medium transition-all duration-150 ease-out
                         ${
                           active
-                            ? "bg-white text-[#1d1d1f] shadow-[0_1px_3px_rgba(0,0,0,0.12)]"
-                            : "text-[#6e6e73] hover:text-[#1d1d1f]"
+                            ? "bg-white dark:bg-[#2c2c2e] text-[#1d1d1f] dark:text-[#f5f5f7] shadow-[0_1px_3px_rgba(0,0,0,0.12)] dark:shadow-[0_1px_3px_rgba(0,0,0,0.4)]"
+                            : "text-[#6e6e73] dark:text-[#98989d] hover:text-[#1d1d1f] dark:hover:text-[#f5f5f7]"
                         }`}
                     >
                       <span
@@ -280,18 +292,18 @@ export default function CreateTaskForm({ onSubmit, onCancel }) {
                 value={form.dueDate}
                 onChange={update("dueDate")}
                 placeholder=" "
-                className="peer w-full bg-transparent pt-2 pb-1 pr-8 text-[15px] text-[#1d1d1f] outline-none"
+                className="peer w-full bg-transparent pt-2 pb-1 pr-8 text-[15px] text-[#1d1d1f] dark:text-[#f5f5f7] outline-none [color-scheme:light] dark:[color-scheme:dark]"
               />
               <label
                 htmlFor="task-due"
-                className="pointer-events-none absolute left-4 top-1 text-[11px] text-[#86868b]"
+                className="pointer-events-none absolute left-4 top-1 text-[11px] text-[#86868b] dark:text-[#98989d]"
               >
                 Due Date &amp; Time
               </label>
               <Calendar
                 size={16}
                 strokeWidth={2}
-                className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#86868b]"
+                className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#86868b] dark:text-[#98989d]"
               />
             </div>
 
@@ -313,7 +325,7 @@ export default function CreateTaskForm({ onSubmit, onCancel }) {
                   id="task-assignee"
                   value={form.assignee}
                   onChange={update("assignee")}
-                  className="peer w-full appearance-none bg-transparent pt-3 pb-1 pr-6 text-[15px] text-[#1d1d1f] outline-none"
+                  className="peer w-full appearance-none bg-transparent pt-3 pb-1 pr-6 text-[15px] text-[#1d1d1f] dark:text-[#f5f5f7] outline-none [color-scheme:light] dark:[color-scheme:dark]"
                 >
                   {ASSIGNEES.map((a) => (
                     <option key={a.value} value={a.value}>
@@ -323,14 +335,14 @@ export default function CreateTaskForm({ onSubmit, onCancel }) {
                 </select>
                 <label
                   htmlFor="task-assignee"
-                  className="pointer-events-none absolute left-0 top-0 text-[11px] text-[#86868b]"
+                  className="pointer-events-none absolute left-0 top-0 text-[11px] text-[#86868b] dark:text-[#98989d]"
                 >
                   Assignee
                 </label>
                 <ChevronDown
                   size={16}
                   strokeWidth={2}
-                  className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-[#86868b]"
+                  className="pointer-events-none absolute right-0 top-1/2 -translate-y-1/2 text-[#86868b] dark:text-[#98989d]"
                 />
               </div>
             </div>
@@ -338,11 +350,11 @@ export default function CreateTaskForm({ onSubmit, onCancel }) {
         </div>
 
         {/* ---------------- Action Footer ---------------- */}
-        <div className="flex items-center justify-end gap-2 border-t border-[#d2d2d7] bg-[#fbfbfd] px-7 py-4">
+        <div className="flex items-center justify-end gap-2 border-t border-[#d2d2d7] dark:border-white/10 bg-[#fbfbfd] dark:bg-[#232326] px-7 py-4">
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-full px-4 py-2 text-[14px] font-medium text-[#1d1d1f] transition-colors duration-150 hover:bg-[#e8e8ed] active:bg-[#dcdce1]"
+            className="rounded-full px-4 py-2 text-[14px] font-medium text-[#1d1d1f] dark:text-[#f5f5f7] transition-colors duration-150 hover:bg-[#e8e8ed] dark:hover:bg-white/10 active:bg-[#dcdce1] dark:active:bg-white/15"
           >
             Cancel
           </button>
@@ -350,10 +362,10 @@ export default function CreateTaskForm({ onSubmit, onCancel }) {
           <button
             type="submit"
             disabled={submitting}
-            className="rounded-full bg-[#0071e3] px-5 py-2 text-[14px] font-semibold text-white shadow-[0_1px_2px_rgba(0,113,227,0.35)] transition-all duration-150 ease-out
-              hover:bg-[#0077ed]
-              active:scale-[0.97] active:bg-[#0068cc]
-              disabled:cursor-not-allowed disabled:bg-[#0071e3]/40 disabled:shadow-none disabled:active:scale-100"
+            className="rounded-full bg-[#1c4b96] dark:bg-[#4c8bdf] px-5 py-2 text-[14px] font-semibold text-white shadow-[0_1px_2px_rgba(28,75,150,0.35)] transition-all duration-150 ease-out
+              hover:bg-[#163c78] dark:hover:bg-[#6ea3e8]
+              active:scale-[0.97] active:bg-[#163c78] dark:active:bg-[#3f7bd0]
+              disabled:cursor-not-allowed disabled:bg-[#1c4b96]/40 dark:disabled:bg-[#4c8bdf]/40 disabled:shadow-none disabled:active:scale-100"
           >
             {submitting ? "Creating…" : "Create Task"}
           </button>
