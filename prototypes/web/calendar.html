@@ -111,9 +111,12 @@
       </div>
 
       <div id="calendar-week-view" style="display:none">
-        <div style="padding:64px 32px;text-align:center;color:var(--text-tertiary)">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:16px;opacity:0.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-          <div style="font-size:15px">Week view is coming next.</div>
+        <div class="cal-week-header" id="cal-week-header"></div>
+        <div class="cal-week-scroll" id="cal-week-scroll">
+          <div class="cal-week-body" id="cal-week-body">
+            <div class="cal-week-gutter" id="cal-week-gutter"></div>
+            <div class="cal-week-columns" id="cal-week-columns"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -226,6 +229,170 @@ function jumpToWeek(key) {
   switchView('week');
 }
 
+const HOUR_HEIGHT = 48; // px per hour on the Week grid
+const GRID_HEIGHT = HOUR_HEIGHT * 24;
+const MIN_BLOCK_HEIGHT = 24; // px — keeps very short tasks clickable/legible
+
+function formatHourMinute(totalMin) {
+  const h = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  const period = h < 12 ? 'AM' : 'PM';
+  const h12 = h % 12 === 0 ? 12 : h % 12;
+  return `${h12}:${String(m).padStart(2, '0')} ${period}`;
+}
+
+function formatWeekRangeLabel(start, end) {
+  const sameMonth = start.getMonth() === end.getMonth();
+  const startStr = start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  const endStr = end.toLocaleDateString(undefined, sameMonth ? { day: 'numeric' } : { month: 'short', day: 'numeric' });
+  return `${startStr} – ${endStr}, ${end.getFullYear()}`;
+}
+
+/**
+ * Standard calendar-event layout algorithm: sort a day's tasks by start
+ * time, walk them chronologically grouping into "clusters" (a task
+ * starts a new cluster only once every previously-seen task in the
+ * current cluster has already ended — a real gap, not just this one
+ * task not overlapping the very first one). Within each cluster,
+ * greedily assign each task to the first column whose last occupant has
+ * already ended, opening a new column otherwise. Width/left-offset is
+ * then sized by how many columns THAT CLUSTER needed, not a single
+ * global max for the whole day — so two 9am tasks overlapping each
+ * other don't also shrink an unrelated 4pm task down to half width.
+ */
+function layoutDayTasks(dayTasks) {
+  if (dayTasks.length === 0) return [];
+
+  const items = dayTasks
+    .map((task) => {
+      const d = new Date(task.dueAt);
+      const startMin = d.getHours() * 60 + d.getMinutes();
+      const endMin = Math.min(startMin + (task.durationMinutes || 30), 1440);
+      return { task, startMin, endMin };
+    })
+    .sort((a, b) => a.startMin - b.startMin || a.endMin - b.endMin);
+
+  const results = [];
+  let cluster = [];
+  let clusterEnd = -1;
+
+  function flushCluster() {
+    if (cluster.length === 0) return;
+    const columnEnds = []; // columnEnds[c] = end time of the last item placed in column c
+    const colOf = [];
+    for (const item of cluster) {
+      let placedIn = -1;
+      for (let c = 0; c < columnEnds.length; c++) {
+        if (columnEnds[c] <= item.startMin) {
+          columnEnds[c] = item.endMin;
+          placedIn = c;
+          break;
+        }
+      }
+      if (placedIn === -1) {
+        columnEnds.push(item.endMin);
+        placedIn = columnEnds.length - 1;
+      }
+      colOf.push(placedIn);
+    }
+    const numCols = columnEnds.length;
+    cluster.forEach((item, i) => {
+      results.push({ task: item.task, startMin: item.startMin, endMin: item.endMin, col: colOf[i], numCols });
+    });
+    cluster = [];
+    clusterEnd = -1;
+  }
+
+  for (const item of items) {
+    if (cluster.length > 0 && item.startMin >= clusterEnd) flushCluster();
+    cluster.push(item);
+    clusterEnd = Math.max(clusterEnd, item.endMin);
+  }
+  flushCluster();
+
+  return results;
+}
+
+function handleWeekSlotClick(e, key) {
+  const rect = e.currentTarget.getBoundingClientRect();
+  const offsetY = e.clientY - rect.top;
+  const totalMinutes = Math.round((offsetY / GRID_HEIGHT) * 1440);
+  const snapped = Math.max(0, Math.min(1425, Math.round(totalMinutes / 30) * 30)); // snap to nearest 30 min
+  const [y, m, d] = key.split('-').map(Number);
+  const due = new Date(y, m - 1, d, Math.floor(snapped / 60), snapped % 60, 0);
+  location.href = `create-task.html?due=${encodeURIComponent(due.toISOString())}`;
+}
+
+function renderWeekView() {
+  const weekStart = startOfWeekMonday(anchorDate);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 6);
+  document.getElementById('calendar-title').textContent = formatWeekRangeLabel(weekStart, weekEnd);
+
+  const todayKey = dateKey(new Date());
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    return d;
+  });
+
+  document.getElementById('cal-week-header').innerHTML =
+    '<div class="cal-week-header-cell"></div>' +
+    days
+      .map((d, i) => {
+        const isToday = dateKey(d) === todayKey;
+        return `
+      <div class="cal-week-header-cell">
+        <div class="cal-week-header-weekday">${WEEKDAY_LABELS[i]}</div>
+        <div class="cal-week-header-date ${isToday ? 'is-today' : ''}">${d.getDate()}</div>
+      </div>`;
+      })
+      .join('');
+
+  document.getElementById('cal-week-gutter').innerHTML = Array.from({ length: 24 }, (_, h) => {
+    const label = h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`;
+    return `<div class="cal-week-hour-label" style="top:${h * HOUR_HEIGHT}px">${label}</div>`;
+  }).join('');
+
+  const now = new Date();
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+  document.getElementById('cal-week-columns').innerHTML = days
+    .map((d) => {
+      const key = dateKey(d);
+      const dayTasks = tasksByDate.get(key) || [];
+      const laidOut = layoutDayTasks(dayTasks);
+
+      const blocksHtml = laidOut
+        .map(({ task, col, numCols, startMin, endMin }) => {
+          const top = (startMin / 1440) * GRID_HEIGHT;
+          const height = Math.max(((endMin - startMin) / 1440) * GRID_HEIGHT, MIN_BLOCK_HEIGHT);
+          const widthPct = 100 / numCols;
+          const leftPct = col * widthPct;
+          const color = PRIORITY_DOT_COLOR[task.priority] || 'var(--neutral)';
+          return `
+        <div class="cal-week-task-block" style="top:${top}px;height:${height}px;left:calc(${leftPct}% + 2px);width:calc(${widthPct}% - 4px);background:${color}"
+             onclick="event.stopPropagation(); location.href='task-detail.html?id=${task.id}'" title="${task.title}">
+          <span class="cal-week-task-time">${formatHourMinute(startMin)}</span>${task.title}
+        </div>`;
+        })
+        .join('');
+
+      const isTodayCol = key === todayKey;
+      const nowLine = isTodayCol
+        ? `<div class="cal-week-now-line" style="top:${(nowMinutes / 1440) * GRID_HEIGHT}px"></div>`
+        : '';
+
+      return `<div class="cal-week-day-col" style="height:${GRID_HEIGHT}px" onclick="handleWeekSlotClick(event, '${key}')">${blocksHtml}${nowLine}</div>`;
+    })
+    .join('');
+
+  // Auto-scroll to 7 AM, matching Apple/Google Calendar's default "open
+  // scrolled to morning" behavior rather than starting at midnight.
+  const scrollEl = document.getElementById('cal-week-scroll');
+  scrollEl.scrollTop = Math.max(0, 7 * HOUR_HEIGHT - 60);
+}
+
 function switchView(view) {
   currentView = view;
   document.querySelectorAll('.view-toggle button').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
@@ -236,8 +403,7 @@ function switchView(view) {
 
 function render() {
   if (currentView === 'month') renderMonthView();
-  // Week view rendering lands in the next phase — its container already
-  // shows a "coming next" placeholder (see the static markup above).
+  else renderWeekView();
 }
 
 function goToday() {

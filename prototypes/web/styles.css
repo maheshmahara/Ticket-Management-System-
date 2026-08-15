@@ -1826,3 +1826,140 @@ input:-webkit-autofill:active {
 }
 
 .cal-legend-swatch { width: 14px; height: 14px; border-radius: 4px; }
+
+/* Week view — full 24h scrollable hourly grid. Hour gridlines are a
+   repeating-linear-gradient background on each day column rather than
+   168 individual DOM cells (24 hours x 7 days) — much cheaper, and the
+   real content (task blocks, the now-line) are absolutely positioned
+   on top by minute-of-day math, not tied to a cell grid at all. */
+.cal-week-header {
+  display: grid;
+  grid-template-columns: 56px repeat(7, 1fr);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+  background: var(--surface-alt);
+}
+
+.cal-week-header-cell {
+  padding: 8px 4px 10px;
+  text-align: center;
+  border-left: 1px solid var(--border);
+}
+
+.cal-week-header-cell:first-child { border-left: none; }
+
+.cal-week-header-weekday {
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-tertiary);
+}
+
+.cal-week-header-date {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 4px auto 0;
+  width: 28px;
+  height: 28px;
+  line-height: 28px;
+  border-radius: 50%;
+}
+
+.cal-week-header-date.is-today { background: var(--accent); color: #fff; }
+
+.cal-week-scroll {
+  max-height: 620px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  background: var(--surface);
+}
+
+.cal-week-body {
+  display: grid;
+  grid-template-columns: 56px repeat(7, 1fr);
+  position: relative;
+}
+
+.cal-week-gutter { position: relative; }
+
+.cal-week-hour-label {
+  position: absolute;
+  right: 8px;
+  transform: translateY(-50%);
+  font-size: 10.5px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.cal-week-columns {
+  /* .cal-week-body's own grid is `56px repeat(7, 1fr)` (8 tracks total),
+     but only has two direct children (.cal-week-gutter, this element) —
+     without an explicit grid-column, auto-placement drops this into
+     just the first 1fr track (track 2) and stops, squeezing this
+     element's own 7-column sub-grid into 1/7th the intended width
+     instead of spanning the remaining 7 tracks. */
+  grid-column: 2 / -1;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  position: relative;
+}
+
+.cal-week-day-col {
+  position: relative;
+  border-left: 1px solid var(--border);
+  background-image: repeating-linear-gradient(
+    to bottom,
+    var(--border) 0,
+    var(--border) 1px,
+    transparent 1px,
+    transparent 48px
+  );
+  cursor: pointer;
+}
+
+.cal-week-task-block {
+  position: absolute;
+  border-radius: 6px;
+  padding: 3px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  line-height: 1.3;
+}
+
+.cal-week-task-block:hover { filter: brightness(1.08); }
+
+.cal-week-task-time {
+  display: block;
+  font-size: 9.5px;
+  font-weight: 500;
+  opacity: 0.85;
+}
+
+.cal-week-now-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 2px solid var(--danger);
+  z-index: 4;
+  pointer-events: none;
+}
+
+.cal-week-now-line::before {
+  content: "";
+  position: absolute;
+  left: -4px;
+  top: -4px;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--danger);
+}
