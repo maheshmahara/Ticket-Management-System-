@@ -37,9 +37,10 @@ from app.models.task import Task as TaskModel
 from app.models.task import TaskPriority as TaskPriorityModel
 from app.models.task import TaskStatus
 from app.models.user import Role
+from app.models.user import User as UserModel
 from app.services import analytics_service, org_service
 from app.services.task_service import TASK_EAGER_LOAD
-from app.services.user_service import list_users
+from app.services.user_service import USER_EAGER_LOAD, list_users
 
 
 def _encode_cursor(offset: int) -> str:
@@ -130,6 +131,17 @@ class Query:
         db = info.context.db
         rows = await org_service.list_business_units(db)
         return [to_business_unit(bu) for bu in rows]
+
+    @strawberry.field(permission_classes=[IsAdmin])
+    async def pending_role_requests(self, info: Info) -> list[User]:
+        db = info.context.db
+        result = await db.execute(
+            select(UserModel)
+            .options(*USER_EAGER_LOAD)
+            .where(UserModel.requested_role.is_not(None))
+            .order_by(UserModel.full_name)
+        )
+        return [to_user(u) for u in result.scalars().all()]
 
     @strawberry.field(permission_classes=[IsAuthenticated])
     async def users(self, info: Info, department_id: Optional[strawberry.ID] = None) -> list[User]:

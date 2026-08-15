@@ -4,7 +4,9 @@ overdue recompute, etc.) belongs in app/services/, not here — resolvers
 stay thin: authenticate/authorize, delegate, map to GraphQL types.
 """
 
+import base64
 import uuid
+from datetime import datetime, timezone
 from typing import Optional
 
 import strawberry
@@ -36,14 +38,24 @@ from app.graphql.types import (
     NotificationPreferencesInput,
     Task,
     UpdateBranchInput,
+    UpdateMyProfileInput,
     UpdateUserInput,
 )
+from app.graphql.types import Role as GqlRole
 from app.graphql.types import TaskStatus as GqlTaskStatus
 from app.graphql.types import UpdateTaskInput, User
 from app.models.task import TaskPriority as TaskPriorityModel
 from app.models.task import TaskStatus as TaskStatusModel
+from app.models.user import Role as RoleModel
 from app.services import org_service, task_service
 from app.services.user_service import get_user_by_email, get_user_by_id
+
+# Defense in depth, not the primary control — the client resizes to
+# ~200x200 JPEG q=0.7 first (see my-profile.html), which produces roughly
+# 10-30KB of base64. 500,000 chars (~366KB decoded) leaves generous
+# headroom for unusual images while still rejecting a raw multi-MB upload
+# that bypassed client-side resize entirely.
+MAX_PHOTO_BASE64_LENGTH = 500_000
 
 
 @strawberry.type
@@ -221,6 +233,66 @@ class Mutation:
         await db.refresh(actor, attribute_names=["phone_number", "notify_email", "notify_sms"])
         return to_user(actor)
 
+    @strawberry.mutation(permission_classes=[IsAuthenticated])
+    async def update_my_profile(self, info: Info, input: UpdateMyProfileInput) -> User:
+        """Self-service department/job title/phone/photo editing — see
+        UpdateMyProfileInput's docstring for why permission Role isn't
+        here (that's requestRoleChange, which needs admin approval).
+        Also the mutation that flips on profile_completed_at, the first
+        time department + phone are both present, powering the one-time
+        onboarding-gate redirect on every other page."""
+        db = info.context.db
+        actor = info.context.user
+
+        if input.photo_base64 is not None and input.remove_photo:
+            raise app_error("VALIDATION_ERROR", "Can't upload a new photo and remove the photo in the same request.")
+
+        if input.photo_base64 is not None:
+            if len(input.photo_base64) > MAX_PHOTO_BASE64_LENGTH:
+                raise app_error("VALIDATION_ERROR", "Photo is too large — please use a smaller image.")
+            try:
+                base64.b64decode(input.photo_base64, validate=True)
+            except Exception:
+                raise app_error("VALIDATION_ERROR", "Photo isn't valid base64 image data.")
+            actor.photo_base64 = input.photo_base64
+        elif input.remove_photo:
+            actor.photo_base64 = None
+
+        if input.department_id is not None:
+            actor.department_id = uuid.UUID(str(input.department_id))
+        if input.job_title is not None:
+            actor.job_title = input.job_title
+        if input.phone_number is not None:
+            actor.phone_number = input.phone_number
+
+        if actor.profile_completed_at is None and actor.department_id is not None and actor.phone_number:
+            actor.profile_completed_at = datetime.now(timezone.utc)
+
+        await db.commit()
+        # department may have just changed — re-fetch fully eager-loaded
+        # rather than a narrow db.refresh(attribute_names=...), since
+        # to_user() also reads the department/branch relationships.
+        return to_user(await get_user_by_id(db, actor.id))
+
+    @strawberry.mutation(permission_classes=[IsAuthenticated])
+    async def request_role_change(self, info: Info, role: Optional[GqlRole] = None) -> User:
+        """Self-service request for a different permission Role — does
+        NOT change what's enforced (see app/models/user.py's `role`
+        column comment). An admin must approve it via
+        respondToRoleRequest before it takes effect. Pass role=null to
+        withdraw a pending request without waiting for an admin to deny
+        it."""
+        db = info.context.db
+        actor = info.context.user
+
+        if role is not None and role.value == actor.role.value:
+            raise app_error("VALIDATION_ERROR", "You already have this role.")
+
+        actor.requested_role = RoleModel(role.value) if role is not None else None
+        await db.commit()
+        await db.refresh(actor, attribute_names=["requested_role"])
+        return to_user(actor)
+
     # --- Admin panel mutations (permission_classes=[IsAdmin]) ---
 
     @strawberry.mutation(permission_classes=[IsAdmin])
@@ -286,6 +358,29 @@ class Mutation:
 
         user = await org_service.update_user(db, user_id=uuid.UUID(str(id)), input=input)
         return to_user(user)
+
+    @strawberry.mutation(permission_classes=[IsAdmin])
+    async def respond_to_role_request(self, info: Info, user_id: strawberry.ID, approve: bool) -> User:
+        db = info.context.db
+        actor = info.context.user
+
+        user = await get_user_by_id(db, uuid.UUID(str(user_id)))
+        if user is None:
+            raise app_error("NOT_FOUND", "User not found.")
+        if user.requested_role is None:
+            raise app_error("VALIDATION_ERROR", "This user has no pending role request.")
+
+        if approve:
+            # Same self-lockout guard as update_user above — an admin
+            # approving their own downgrade request would leave no one
+            # able to undo it via the admin panel.
+            if str(user.id) == str(actor.id) and user.requested_role != RoleModel.ADMIN:
+                raise app_error("VALIDATION_ERROR", "You can't remove your own admin role, even via a role request.")
+            user.role = user.requested_role
+        user.requested_role = None
+
+        await db.commit()
+        return to_user(await get_user_by_id(db, user.id))
 
     @strawberry.mutation(permission_classes=[IsAdmin])
     async def reset_user_password(self, info: Info, id: strawberry.ID, new_password: str) -> bool:

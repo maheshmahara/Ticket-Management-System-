@@ -73,6 +73,9 @@ def to_user(user: UserModel) -> gql.User:
         phone_number=user.phone_number,
         notify_email=user.notify_email,
         notify_sms=user.notify_sms,
+        photo_base64=user.photo_base64,
+        profile_completed_at=user.profile_completed_at,
+        requested_role=gql.Role(user.requested_role.value) if user.requested_role else None,
     )
 
 

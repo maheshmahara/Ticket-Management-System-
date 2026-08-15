@@ -93,6 +93,16 @@ class User:
     phone_number: Optional[str]
     notify_email: bool
     notify_sms: bool
+    # Raw base64 payload (no data-URI prefix) — see photo_base64's comment
+    # on the User model for why. None if no photo has been uploaded.
+    photo_base64: Optional[str]
+    # Set once the user has both a department and a phone number on file —
+    # see UpdateMyProfileInput / update_my_profile in mutations.py.
+    profile_completed_at: Optional[datetime]
+    # A self-requested role change awaiting admin approval — never the
+    # role actually enforced (that's always `role` above). See
+    # requestRoleChange / respondToRoleRequest in mutations.py.
+    requested_role: Optional[Role]
 
 
 @strawberry.type
@@ -283,6 +293,25 @@ class BulkTaskUpdateInput:
     status: Optional[TaskStatus] = None
     priority: Optional[TaskPriority] = None
     assignee_id: Optional[strawberry.ID] = None
+
+
+@strawberry.input
+class UpdateMyProfileInput:
+    """Self-service profile editing (department/job title/phone/photo) —
+    see update_my_profile in mutations.py. Same "None means leave
+    unchanged" convention as every other Update*Input in this file.
+    `remove_photo` is a separate explicit flag rather than overloading
+    `photo_base64: null` — null already means "leave unchanged" under
+    that convention, so there's no other way to say "take my photo off"
+    with one field. Deliberately has no `role` field — permission-role
+    changes go through the separate requestRoleChange mutation, which
+    requires admin approval rather than applying immediately."""
+
+    department_id: Optional[strawberry.ID] = None
+    job_title: Optional[str] = None
+    phone_number: Optional[str] = None
+    photo_base64: Optional[str] = None
+    remove_photo: bool = False
 
 
 @strawberry.input
