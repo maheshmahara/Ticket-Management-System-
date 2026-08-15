@@ -73,6 +73,7 @@ async def create_task(db: AsyncSession, *, actor: User, input) -> Task:
         assignee_id=uuid.UUID(str(input.assignee_id)) if input.assignee_id else None,
         reporter_id=actor.id,
         due_at=input.due_at,
+        duration_minutes=input.duration_minutes,
     )
     db.add(task)
     await db.commit()
@@ -124,6 +125,8 @@ async def update_task(db: AsyncSession, *, actor: User, task: Task, input) -> Ta
         _apply_status(task, TaskStatus(input.status.value))
     if input.due_at is not None:
         task.due_at = input.due_at
+    if input.duration_minutes is not None:
+        task.duration_minutes = input.duration_minutes
     if input.assignee_id is not None:
         new_assignee_id = uuid.UUID(str(input.assignee_id))
         assignee_changed = new_assignee_id != task.assignee_id
