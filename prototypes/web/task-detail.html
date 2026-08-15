@@ -289,6 +289,10 @@ async function handleAddComment(e) {
 (async function initSidebar() {
   try {
     const me = await Api.me();
+    if (!me.profileCompletedAt) {
+      location.href = 'my-profile.html';
+      return;
+    }
     document.getElementById('sidebar-name').textContent = me.fullName;
     document.getElementById('sidebar-role').textContent = me.department ? me.department.name : me.role;
     setSidebarAvatar(me);

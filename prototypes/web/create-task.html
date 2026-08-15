@@ -137,6 +137,10 @@ async function loadFormOptions() {
 
   try {
     const [departments, me] = await Promise.all([Api.departments(), Api.me()]);
+    if (!me.profileCompletedAt) {
+      location.href = 'my-profile.html';
+      return;
+    }
     deptSelect.innerHTML = departments
       .map(d => `<option value="${d.id}">${d.name}</option>`)
       .join('');

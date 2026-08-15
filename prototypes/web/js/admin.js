@@ -34,6 +34,11 @@ let requestsCache = null;
     throw err;
   }
 
+  if (!me.profileCompletedAt) {
+    location.href = "my-profile.html";
+    return;
+  }
+
   if (me.role !== "ADMIN" && me.role !== "MANAGER") {
     // Not a client-side-only check — every mutation below is also
     // IsAdmin-gated server-side (and kpiReport is IsManagerOrAdmin). This
