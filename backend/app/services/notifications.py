@@ -107,34 +107,48 @@ async def _send_task_notifications_async(task_id: str, trigger: NotificationTrig
     # app.core.database imports app.core.config, which is safe, but
     # keeping DB imports local to functions that actually need them keeps
     # this module importable even before the DB layer is fully wired.
-    from app.core.database import AsyncSessionLocal
+    from app.core.database import AsyncSessionLocal, engine
 
-    async with AsyncSessionLocal() as db:
-        result = await db.execute(
-            select(Task)
-            .options(selectinload(Task.department), selectinload(Task.assignee))
-            .where(Task.id == uuid.UUID(task_id))
-        )
-        task = result.scalar_one_or_none()
-        if task is None:
-            return  # deleted since this job was enqueued
+    try:
+        async with AsyncSessionLocal() as db:
+            result = await db.execute(
+                select(Task)
+                .options(selectinload(Task.department), selectinload(Task.assignee))
+                .where(Task.id == uuid.UUID(task_id))
+            )
+            task = result.scalar_one_or_none()
+            if task is None:
+                return  # deleted since this job was enqueued
 
-        if trigger == NotificationTrigger.TASK_ASSIGNED:
-            # Assignment notifications are unconditional on priority (see
-            # module docstring) — only the master kill-switch applies.
-            if not settings.notifications_enabled:
+            if trigger == NotificationTrigger.TASK_ASSIGNED:
+                # Assignment notifications are unconditional on priority (see
+                # module docstring) — only the master kill-switch applies.
+                if not settings.notifications_enabled:
+                    return
+            elif not should_notify(task.priority):
+                # Priority may have changed since this job was enqueued —
+                # re-check rather than trusting the state at enqueue time.
                 return
-        elif not should_notify(task.priority):
-            # Priority may have changed since this job was enqueued —
-            # re-check rather than trusting the state at enqueue time.
-            return
 
-        recipients = await recipients_for_task(db, task, trigger)
-        for user in recipients:
-            if user.notify_email and user.email:
-                await _send_and_log(db, task, user, NotificationChannel.EMAIL, trigger)
-            if user.notify_sms and user.phone_number:
-                await _send_and_log(db, task, user, NotificationChannel.SMS, trigger)
+            recipients = await recipients_for_task(db, task, trigger)
+            for user in recipients:
+                if user.notify_email and user.email:
+                    await _send_and_log(db, task, user, NotificationChannel.EMAIL, trigger)
+                if user.notify_sms and user.phone_number:
+                    await _send_and_log(db, task, user, NotificationChannel.SMS, trigger)
+    finally:
+        # `engine` is a module-level singleton (see app/core/database.py),
+        # but this function is invoked via `asyncio.run()` from a *sync*
+        # Celery task (send_task_notifications), so every call gets a
+        # brand-new event loop. Without disposing here, the asyncpg
+        # connection(s) opened above stay pooled on the engine, bound to
+        # this loop — the next call's *new* loop then fails hard with
+        # "got Future ... attached to a different loop" the moment it
+        # tries to reuse them. Disposing inside the same loop that owns
+        # the connections lets SQLAlchemy close them cleanly and forces a
+        # fresh connection next time. See SQLAlchemy's asyncio docs,
+        # "Using multiple asyncio event loops".
+        await engine.dispose()
 
 
 async def _send_and_log(
