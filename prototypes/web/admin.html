@@ -72,9 +72,10 @@
 
     <div class="content" id="admin-content">
       <div class="admin-tabs" id="admin-tabs">
-        <button class="pill active" data-tab="users">Users</button>
-        <button class="pill" data-tab="org">Org Structure</button>
-        <button class="pill" data-tab="notifications">Notifications</button>
+        <button class="pill active" data-tab="users" id="tab-btn-users">Users</button>
+        <button class="pill" data-tab="org" id="tab-btn-org">Org Structure</button>
+        <button class="pill" data-tab="notifications" id="tab-btn-notifications">Notifications</button>
+        <button class="pill" data-tab="kpi" id="tab-btn-kpi">KPIs</button>
       </div>
 
       <!-- USERS TAB -->
@@ -147,6 +148,27 @@
           <div id="notify-rows">
             <div style="padding:32px;text-align:center;color:var(--text-tertiary)">Loading…</div>
           </div>
+        </div>
+      </section>
+
+      <!-- KPI TAB -->
+      <section id="tab-kpi" style="display:none">
+        <div class="toolbar">
+          <div class="filter-pills" id="kpi-range-pills">
+            <button class="pill active" data-range="week">This Week</button>
+            <button class="pill" data-range="month">This Month</button>
+            <button class="pill" data-range="custom">Custom</button>
+          </div>
+          <div id="kpi-custom-range" style="display:none;align-items:center;gap:8px">
+            <input type="date" id="kpi-custom-start" class="side-select" style="width:auto" />
+            <span style="color:var(--text-tertiary);font-size:13px">to</span>
+            <input type="date" id="kpi-custom-end" class="side-select" style="width:auto" />
+            <button class="btn btn-secondary" id="kpi-custom-apply" onclick="loadKpiTab()">Apply</button>
+          </div>
+        </div>
+
+        <div id="kpi-content">
+          <div style="padding:32px;text-align:center;color:var(--text-tertiary)">Loading KPIs…</div>
         </div>
       </section>
     </div>

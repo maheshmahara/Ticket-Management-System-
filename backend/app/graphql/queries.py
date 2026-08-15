@@ -5,6 +5,7 @@ GraphQL query resolvers. Resolvers pull the DB session and current user off
 
 import base64
 import uuid
+from datetime import datetime
 from typing import Optional
 
 import strawberry
@@ -13,13 +14,16 @@ from strawberry.types import Info
 
 from app.graphql.errors import app_error
 from app.graphql.mappers import to_business_unit, to_department, to_task, to_user
-from app.graphql.permissions import IsAdmin, IsAuthenticated, can_view_task
+from app.graphql.permissions import IsAdmin, IsAuthenticated, IsManagerOrAdmin, can_view_task
 from app.graphql.types import (
     BusinessUnit,
     DashboardStats,
     Department,
+    DepartmentKpi,
+    KpiReport,
     PageInfo,
     PageInput,
+    ResolverLeaderboardEntry,
     Task,
     TaskConnection,
     TaskEdge,
@@ -33,7 +37,7 @@ from app.models.task import Task as TaskModel
 from app.models.task import TaskPriority as TaskPriorityModel
 from app.models.task import TaskStatus
 from app.models.user import Role
-from app.services import org_service
+from app.services import analytics_service, org_service
 from app.services.task_service import TASK_EAGER_LOAD
 from app.services.user_service import list_users
 
@@ -159,6 +163,59 @@ class Query:
             UserWorkload(user=to_user(u), open_task_count=counts.get(u.id, 0))
             for u in candidates
         ]
+
+    @strawberry.field(permission_classes=[IsManagerOrAdmin])
+    async def kpi_report(self, info: Info, start: datetime, end: datetime) -> KpiReport:
+        """Admins get every department; Managers get a strict match on
+        their own department_id only — deliberately NOT the
+        OR-with-own-tasks scope dashboard_stats/tasks use above, since a
+        KPI report about "my department's performance" shouldn't also
+        pull in one unrelated cross-department ticket a manager happens
+        to be personally assigned. Members can't reach this resolver at
+        all (field-level IsManagerOrAdmin gate)."""
+        if start >= end:
+            raise app_error("VALIDATION_ERROR", "Start date must be before end date.")
+
+        db = info.context.db
+        user = info.context.user
+
+        department_id = None
+        if user.role == Role.MANAGER:
+            if user.department_id is None:
+                raise app_error("VALIDATION_ERROR", "Your account has no department assigned.")
+            department_id = user.department_id
+
+        dept_rows = await analytics_service.department_resolution_stats(
+            db, department_id=department_id, start=start, end=end
+        )
+        fastest, most_closed = await analytics_service.resolver_leaderboard(
+            db, department_id=department_id, start=start, end=end
+        )
+
+        def _entry(row) -> ResolverLeaderboardEntry:
+            u, avg_seconds, closed_count = row
+            return ResolverLeaderboardEntry(
+                user_id=strawberry.ID(str(u.id)),
+                full_name=u.full_name,
+                avatar_color=u.avatar_color,
+                initials=u.initials,
+                avg_resolution_seconds=float(avg_seconds),
+                closed_count=closed_count,
+            )
+
+        return KpiReport(
+            departments=[
+                DepartmentKpi(
+                    department_id=strawberry.ID(str(dept_id)),
+                    department_name=name,
+                    avg_resolution_seconds=float(avg_seconds),
+                    completed_count=count,
+                )
+                for dept_id, name, avg_seconds, count in dept_rows
+            ],
+            fastest_resolvers=[_entry(r) for r in fastest],
+            most_tickets_closed=[_entry(r) for r in most_closed],
+        )
 
     @strawberry.field(permission_classes=[IsAuthenticated])
     async def task(self, info: Info, id: strawberry.ID) -> Optional[Task]:

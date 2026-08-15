@@ -311,6 +311,28 @@ const Api = {
     return data.addComment;
   },
 
+  /**
+   * Gated server-side with permission_classes=[IsManagerOrAdmin], not
+   * IsAdmin — Managers get their own department only (a strict match,
+   * not the OR-with-own-tasks scope dashboardStats/tasks use), Admins
+   * get every department. `start`/`end` are ISO datetime strings; `end`
+   * is exclusive, so callers building a "through today" range need to
+   * pass midnight of the day *after*.
+   */
+  async kpiReport(start, end) {
+    const data = await gql(
+      `query KpiReport($start: DateTime!, $end: DateTime!) {
+        kpiReport(start: $start, end: $end) {
+          departments { departmentId departmentName avgResolutionSeconds completedCount }
+          fastestResolvers { userId fullName avatarColor initials avgResolutionSeconds closedCount }
+          mostTicketsClosed { userId fullName avatarColor initials avgResolutionSeconds closedCount }
+        }
+      }`,
+      { start, end }
+    );
+    return data.kpiReport;
+  },
+
   // --- Admin panel (all resolvers below are gated server-side with
   // permission_classes=[IsAdmin] — a non-admin token gets a FORBIDDEN
   // GraphQL error, not a silently empty result) ---
@@ -427,4 +449,19 @@ function avatarInitials(person) {
 
 function avatarColor(person) {
   return person ? person.avatarColor : "var(--neutral)";
+}
+
+/** Seconds -> "2d 4h" / "3h 15m" / "42m" for the KPI panel's resolution-time
+ * displays. Drops to the next-smaller unit rather than showing both when
+ * the larger unit dominates (e.g. "2d 4h", not "2d 4h 12m") to keep the
+ * table scannable. */
+function formatDuration(seconds) {
+  if (seconds == null) return "—";
+  const totalMinutes = Math.round(seconds / 60);
+  const days = Math.floor(totalMinutes / 1440);
+  const hours = Math.floor((totalMinutes % 1440) / 60);
+  const minutes = totalMinutes % 60;
+  if (days > 0) return `${days}d ${hours}h`;
+  if (hours > 0) return `${hours}h ${minutes}m`;
+  return `${minutes}m`;
 }
