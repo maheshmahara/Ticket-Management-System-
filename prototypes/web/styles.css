@@ -1963,3 +1963,171 @@ input:-webkit-autofill:active {
   border-radius: 50%;
   background: var(--danger);
 }
+
+/* Timeline (Gantt) view — one row per assignee, a day-column grid
+   spanning the visible month. Header and body are two separate grids
+   (not one grid spanning every row) sharing an identical
+   grid-template-columns, the same approach cal-week-header/cal-week-body
+   use — simpler than one giant multi-row grid, and their column widths
+   stay pixel-aligned since both containers are the same overall width.
+   The label-column width and day-count are set inline per render (the
+   day-track column count varies 28–31 by month), so these rules only
+   fix the parts that don't change month to month. */
+.tl-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  user-select: none;
+  cursor: pointer;
+}
+
+.tl-toggle-row input { accent-color: var(--accent); }
+
+.tl-grid-wrap {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.tl-header {
+  display: grid;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-alt);
+}
+
+.tl-header-spacer { border-right: 1px solid var(--border); }
+
+.tl-header-day {
+  padding: 8px 2px;
+  text-align: center;
+  border-left: 1px solid var(--border);
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.tl-header-day:first-child { border-left: none; }
+.tl-header-day.is-weekend { background: color-mix(in srgb, var(--text-tertiary) 6%, transparent); }
+
+.tl-header-day-num {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-top: 2px;
+}
+
+.tl-header-day.is-today { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.tl-header-day.is-today .tl-header-day-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  margin-top: 0;
+}
+
+.tl-body { display: grid; max-height: 560px; overflow-y: auto; }
+
+.tl-row-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-right: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+  /* Stays put while the day-track scrolls horizontally on narrow
+     viewports — same "fixed label column" behavior as a real Gantt. */
+  position: sticky;
+  left: 0;
+  z-index: 2;
+}
+
+.tl-row:first-child .tl-row-label,
+.tl-row:first-child .tl-row-track { border-top: none; }
+
+.tl-row-label-name {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tl-row-track {
+  position: relative;
+  border-top: 1px solid var(--border);
+  padding: 4px 0;
+}
+
+.tl-row-daycells {
+  position: absolute;
+  inset: 0;
+  display: grid;
+}
+
+.tl-daycell { border-left: 1px solid var(--border); }
+.tl-daycell:first-child { border-left: none; }
+.tl-daycell.is-weekend { background: color-mix(in srgb, var(--text-tertiary) 5%, transparent); }
+.tl-daycell.is-today { background: color-mix(in srgb, var(--accent) 7%, transparent); }
+
+.tl-bar {
+  position: absolute;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+  /* Muted base = the "remaining" portion of the bar; .tl-bar-fill lays
+     the full-saturation priority color on top, sized by status-derived
+     progress % — the filled left portion reads as "done so far" the
+     way a standard Gantt progress bar does. */
+  background: color-mix(in srgb, var(--tl-bar-color) 40%, var(--surface-alt));
+  transition: filter 0.12s var(--ease);
+}
+
+.tl-bar:hover { filter: brightness(1.06); }
+
+.tl-bar-fill {
+  position: absolute;
+  inset: 0;
+  width: var(--tl-progress, 0%);
+  background: var(--tl-bar-color);
+}
+
+.tl-bar-label {
+  position: relative;
+  z-index: 1;
+  padding: 0 6px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Bottleneck flag: this bar overlaps at least one other task in the
+   same assignee's row during its own span — the visual is the whole
+   point (client-side overlap detection, no schema, no config), see
+   layoutTimelineRows() in timeline.html. */
+.tl-bar.is-bottleneck {
+  border: 2px solid var(--danger);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 25%, transparent);
+}
+
+.tl-empty-state {
+  padding: 64px 32px;
+  text-align: center;
+  color: var(--text-tertiary);
+  font-size: 13.5px;
+}
