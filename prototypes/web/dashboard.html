@@ -155,6 +155,11 @@ requireAuth();
   try {
     const [me, stats] = await Promise.all([Api.me(), Api.dashboardStats()]);
 
+    if (!me.profileCompletedAt) {
+      location.href = 'my-profile.html';
+      return;
+    }
+
     document.getElementById('sidebar-name').textContent = me.fullName;
     document.getElementById('sidebar-role').textContent = me.department ? me.department.name : me.role;
     setSidebarAvatar(me);
