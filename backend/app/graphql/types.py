@@ -162,6 +162,27 @@ class UserWorkload:
 
 
 @strawberry.type
+class BulkUpdateFailure:
+    id: strawberry.ID
+    # "NOT_FOUND" | "FORBIDDEN" — mirrors app/graphql/errors.py's error
+    # codes, but this is a per-item result inside an otherwise-successful
+    # response, not a top-level GraphQL error.
+    reason: str
+
+
+@strawberry.type
+class BulkUpdateResult:
+    """Bulk actions are partial-success, not all-or-nothing: a selection
+    can legitimately mix tasks you can and can't edit (e.g. a Manager
+    viewing — but not able to edit — a cross-department task assigned to
+    them), so one un-editable row shouldn't block everything else."""
+
+    success_count: int
+    failures: list[BulkUpdateFailure]
+    tasks: list[Task]
+
+
+@strawberry.type
 class AuthPayload:
     access_token: str
     refresh_token: str
@@ -213,6 +234,18 @@ class UpdateTaskInput:
     priority: Optional[TaskPriority] = None
     status: Optional[TaskStatus] = None
     due_at: Optional[datetime] = None
+    assignee_id: Optional[strawberry.ID] = None
+
+
+@strawberry.input
+class BulkTaskUpdateInput:
+    """Applied to every task in a bulkUpdateTasks(ids, input) call. Same
+    "None means leave unchanged" convention as UpdateTaskInput — this is
+    NOT how you'd unassign a task in bulk (that's not a requirement here),
+    just how you skip a field you don't want this bulk action to touch."""
+
+    status: Optional[TaskStatus] = None
+    priority: Optional[TaskPriority] = None
     assignee_id: Optional[strawberry.ID] = None
 
 

@@ -101,9 +101,32 @@
         </div>
       </div>
 
+      <div class="bulk-toolbar" id="bulk-toolbar" style="display:none">
+        <span id="bulk-count">0 selected</span>
+        <select id="bulk-status">
+          <option value="">Change status…</option>
+          <option value="PENDING">Pending</option>
+          <option value="IN_PROGRESS">In Progress</option>
+          <option value="REVIEW">Review</option>
+          <option value="DONE">Done</option>
+        </select>
+        <select id="bulk-priority">
+          <option value="">Change priority…</option>
+          <option value="LOW">Low</option>
+          <option value="MEDIUM">Medium</option>
+          <option value="HIGH">High</option>
+          <option value="URGENT">Urgent</option>
+        </select>
+        <select id="bulk-assignee">
+          <option value="">Reassign to…</option>
+        </select>
+        <button class="btn btn-ghost" id="bulk-clear" onclick="clearSelection()">Clear selection</button>
+      </div>
+      <div class="bulk-result" id="bulk-result" style="display:none"></div>
+
       <div class="table-panel">
         <div class="table-head">
-          <span></span>
+          <input type="checkbox" id="select-all" class="row-checkbox" onchange="toggleSelectAll(this.checked)" />
           <span>Ticket No</span>
           <span>Title</span>
           <span>Status</span>
@@ -138,6 +161,62 @@ const initialStatusParam = params.get('status');
 let activeStatus = STATUS_PARAM_MAP[initialStatusParam] || '';
 let showOverdueOnly = initialStatusParam === 'overdue';
 
+const selectedIds = new Set();
+
+function updateBulkToolbar() {
+  document.getElementById('bulk-toolbar').style.display = selectedIds.size > 0 ? '' : 'none';
+  document.getElementById('bulk-count').textContent = `${selectedIds.size} selected`;
+}
+
+function toggleRowSelection(id, checked) {
+  if (checked) selectedIds.add(id); else selectedIds.delete(id);
+  const allBoxes = document.querySelectorAll('.row-checkbox[data-id]');
+  document.getElementById('select-all').checked =
+    allBoxes.length > 0 && selectedIds.size === allBoxes.length;
+  updateBulkToolbar();
+}
+
+function toggleSelectAll(checked) {
+  document.querySelectorAll('.row-checkbox[data-id]').forEach(cb => {
+    cb.checked = checked;
+    if (checked) selectedIds.add(cb.dataset.id); else selectedIds.delete(cb.dataset.id);
+  });
+  updateBulkToolbar();
+}
+
+function clearSelection() {
+  selectedIds.clear();
+  document.querySelectorAll('.row-checkbox').forEach(cb => cb.checked = false);
+  updateBulkToolbar();
+}
+
+async function runBulkAction(input) {
+  const selects = ['bulk-status', 'bulk-priority', 'bulk-assignee'].map(id => document.getElementById(id));
+  const resultEl = document.getElementById('bulk-result');
+  selects.forEach(s => s.disabled = true);
+  resultEl.style.display = '';
+  resultEl.style.color = 'var(--text-secondary)';
+  resultEl.textContent = 'Updating…';
+
+  try {
+    const result = await Api.bulkUpdateTasks(Array.from(selectedIds), input);
+    resultEl.textContent = result.failures.length
+      ? `${result.successCount} updated, ${result.failures.length} skipped (no permission).`
+      : `${result.successCount} updated.`;
+    clearSelection();
+    await loadTasks();
+  } catch (err) {
+    if (err.code === 'FORBIDDEN' || err.message.includes('logged in')) {
+      logout();
+      return;
+    }
+    resultEl.style.color = 'var(--danger)';
+    resultEl.textContent = `Couldn't update: ${err.message}`;
+  } finally {
+    selects.forEach(s => { s.disabled = false; s.value = ''; });
+  }
+}
+
 function renderRow(task) {
   const assignee = task.assignee;
   const statusClass = STATUS_CLASS[task.status] || 'pending';
@@ -147,7 +226,8 @@ function renderRow(task) {
 
   return `
     <div class="table-row" onclick="location.href='task-detail.html?id=${task.id}'">
-      <div class="checkbox"></div>
+      <input type="checkbox" class="row-checkbox" data-id="${task.id}" ${selectedIds.has(task.id) ? 'checked' : ''}
+        onclick="event.stopPropagation()" onchange="toggleRowSelection('${task.id}', this.checked)" />
       <div class="ticket-no">#${task.ticketNo}</div>
       <div class="ticket-title-cell"><div class="ticket-title">${task.title}</div></div>
       <span class="status-chip ${statusClass}">● ${statusLabel}</span>
@@ -195,6 +275,19 @@ document.getElementById('filter-pills').addEventListener('click', (e) => {
   loadTasks();
 });
 
+document.getElementById('bulk-status').addEventListener('change', (e) => {
+  if (!e.target.value) return;
+  runBulkAction({ status: e.target.value });
+});
+document.getElementById('bulk-priority').addEventListener('change', (e) => {
+  if (!e.target.value) return;
+  runBulkAction({ priority: e.target.value });
+});
+document.getElementById('bulk-assignee').addEventListener('change', (e) => {
+  if (!e.target.value) return;
+  runBulkAction({ assigneeId: e.target.value });
+});
+
 (async function init() {
   try {
     const me = await Api.me();
@@ -212,6 +305,12 @@ document.getElementById('filter-pills').addEventListener('click', (e) => {
   Api.myTasksBadgeCount()
     .then(count => { document.getElementById('nav-mytasks-count').textContent = count; })
     .catch(() => {});
+  Api.users()
+    .then(users => {
+      const select = document.getElementById('bulk-assignee');
+      select.insertAdjacentHTML('beforeend', users.map(u => `<option value="${u.id}">${u.fullName}</option>`).join(''));
+    })
+    .catch(() => {}); // non-fatal — bulk reassign just won't have options to pick from
   loadTasks();
 })();
 </script>

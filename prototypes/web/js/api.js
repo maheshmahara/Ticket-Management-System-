@@ -279,6 +279,26 @@ const Api = {
     return data.assignTask;
   },
 
+  /**
+   * Partial-success: some selected tasks may not be editable by the
+   * caller (e.g. a cross-department task a Manager can view but not
+   * edit) — those come back in `failures`, not as a thrown error, so a
+   * mostly-valid bulk action doesn't get blocked by one stray row.
+   */
+  async bulkUpdateTasks(ids, input) {
+    const data = await gql(
+      `mutation($ids: [ID!]!, $input: BulkTaskUpdateInput!) {
+        bulkUpdateTasks(ids: $ids, input: $input) {
+          successCount
+          failures { id reason }
+          tasks { id status priority assignee { id fullName initials avatarColor } }
+        }
+      }`,
+      { ids, input }
+    );
+    return data.bulkUpdateTasks;
+  },
+
   async addComment(taskId, body) {
     const data = await gql(
       `mutation AddComment($taskId: ID!, $body: String!) {
