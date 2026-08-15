@@ -210,6 +210,27 @@ async function loadFormOptions() {
     // Non-fatal — "Unassigned" is still a valid choice.
     console.error('Failed to load assignees:', err);
   }
+
+  /**
+   * admin.html's Org Structure mind map links here with
+   * ?departmentId=<id> (clicking a department) or
+   * ?departmentId=<id>&assigneeId=<id> (clicking a person) — the
+   * "click to assign a ticket" half of that feature. Applied after
+   * both selects are populated above (unlike the ?due= prefill in
+   * prefillDueFromQueryParam(), these options don't exist in the DOM
+   * until the fetches resolve). Overrides the department default-to-
+   * my-own-department logic above on purpose: an explicit department
+   * chosen from the org chart should win. A plain visit with neither
+   * param is unaffected.
+   */
+  const params = new URLSearchParams(location.search);
+  const departmentIdParam = params.get('departmentId');
+  const assigneeIdParam = params.get('assigneeId');
+  if (departmentIdParam) deptSelect.value = departmentIdParam;
+  if (assigneeIdParam) {
+    assigneeSelect.value = assigneeIdParam;
+    updateAssigneeAvatar(assigneeSelect);
+  }
 }
 
 async function handleCreateTaskSubmit(e) {

@@ -445,6 +445,27 @@ const Api = {
     return data.businessUnits;
   },
 
+  /**
+   * Powers the Org Structure mind map (admin.html). Distinct from
+   * users() (used by Create Task's assignee list, which only needs
+   * avatar fields) — the mind map also needs each person's department
+   * *and* branch to synthesize the Business Unit -> Branch ->
+   * Department -> Member tree client-side (Branch and Department are
+   * independent attributes on User, not nested in the schema itself).
+   */
+  async orgMembers() {
+    const data = await gql(
+      `query OrgMembers {
+        users {
+          id fullName initials avatarColor role jobTitle
+          department { id name }
+          branch { id name businessUnit { id name } }
+        }
+      }`
+    );
+    return data.users;
+  },
+
   async createDepartment(name) {
     const data = await gql(`mutation($name: String!) { createDepartment(name: $name) { id name } }`, { name });
     return data.createDepartment;

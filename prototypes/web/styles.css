@@ -2131,3 +2131,83 @@ input:-webkit-autofill:active {
   color: var(--text-tertiary);
   font-size: 13.5px;
 }
+
+/* Org Structure mind map (admin.html, org-map.js) — a radial tree:
+   Business Unit -> Branch -> Department-group -> Member. Node fill
+   colors distinguish level (not semantic status like priority colors
+   elsewhere), so they're plain solid tones rather than the
+   danger/warning/accent semantic palette. */
+.org-map-wrap {
+  max-height: 640px;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.org-map-wrap svg { display: block; }
+
+.org-map-link {
+  fill: none;
+  stroke: var(--border-strong);
+  stroke-width: 1.5px;
+}
+
+.org-map-root-circle { fill: var(--accent); }
+
+.org-map-root-label {
+  fill: #fff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.org-map-pill-rect {
+  fill: var(--accent);
+  transition: filter 0.12s var(--ease);
+}
+
+.org-map-node-branch .org-map-pill-rect { fill: var(--neutral); }
+.org-map-node-dept .org-map-pill-rect { fill: color-mix(in srgb, var(--accent) 35%, var(--surface-alt)); }
+.org-map-node-dept .org-map-pill-label { fill: var(--text-primary); }
+
+.org-map-node:hover .org-map-pill-rect { filter: brightness(1.1); }
+
+.org-map-pill-label {
+  fill: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+
+.org-map-ticket-btn { opacity: 0.45; transition: opacity 0.12s var(--ease); }
+.org-map-node-dept:hover .org-map-ticket-btn { opacity: 1; }
+
+.org-map-ticket-btn circle {
+  fill: var(--surface);
+  stroke: var(--accent);
+  stroke-width: 1.5px;
+}
+
+.org-map-ticket-icon-glyph {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.6px;
+  stroke-linecap: round;
+}
+
+.org-map-node-member circle { transition: filter 0.12s var(--ease); }
+.org-map-node-member:hover circle { filter: brightness(1.12); }
+
+.org-map-member-initials {
+  fill: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.org-map-member-name {
+  fill: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 500;
+}
