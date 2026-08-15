@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Timeline — HNBG</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="hnbg-mark.png" alt="HNBG" class="brand-logo" />
+      <div class="brand-text">
+        <div class="brand-tagline"><span class="c-blue">Hokkaido</span> <span class="c-blue">Nepal</span> <span class="c-red">Business</span> <span class="c-red">Group</span></div>
+        <div class="brand-subtitle"><span class="c-blue">HN</span><span class="c-red">BG</span> <span class="brand-tms">TMS</span></div>
+      </div>
+    </div>
+
+    <nav class="nav-section">
+      <div class="nav-label">Workspace</div>
+      <a class="nav-item" href="dashboard.html">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dashboard
+      </a>
+      <a class="nav-item" href="tasks.html">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        My Tasks
+        <span class="count-badge" id="nav-mytasks-count">–</span>
+      </a>
+      <a class="nav-item" href="board.html">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="10" rx="1"/><rect x="17" y="4" width="5" height="13" rx="1"/></svg>
+        Board
+      </a>
+      <a class="nav-item" href="calendar.html">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        Calendar
+      </a>
+      <a class="nav-item active" href="timeline.html">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        Timeline
+      </a>
+    </nav>
+
+    <nav class="nav-section" id="nav-admin-section" style="display:none">
+      <div class="nav-label">System</div>
+      <a class="nav-item" href="admin.html">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 8v4l3 3"/></svg>
+        Admin Panel
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <a class="user-chip" href="my-profile.html" title="View profile">
+        <div class="avatar" id="sidebar-avatar">TL</div>
+        <div class="user-meta">
+          <div class="user-name" id="sidebar-name">Loading…</div>
+          <div class="user-role" id="sidebar-role">—</div>
+        </div>
+      </a>
+      <button class="sidebar-signout-btn" onclick="logout()" title="Sign out">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+        Sign out
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <header class="topbar">
+      <div class="page-title">Timeline</div>
+      <div class="topbar-right">
+        <button class="btn btn-primary" onclick="location.href='create-task.html'">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          Create Task
+        </button>
+      </div>
+    </header>
+
+    <div class="content" style="max-width:none">
+      <div style="padding:64px 32px;text-align:center;color:var(--text-tertiary)">
+        The Gantt-style schedule view is on the way — start dates, task
+        bars, and bottleneck highlighting land next.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+requireAuth();
+
+(async function init() {
+  let me;
+  try {
+    me = await Api.me();
+  } catch (err) {
+    if (err.code === 'FORBIDDEN' || err.message.includes('logged in')) {
+      logout();
+      return;
+    }
+    throw err;
+  }
+
+  if (!me.profileCompletedAt) {
+    location.href = 'my-profile.html';
+    return;
+  }
+
+  document.getElementById('sidebar-name').textContent = me.fullName;
+  document.getElementById('sidebar-role').textContent = me.department ? me.department.name : me.role;
+  setSidebarAvatar(me);
+  if (me.role === 'ADMIN' || me.role === 'MANAGER') document.getElementById('nav-admin-section').style.display = '';
+
+  Api.myTasksBadgeCount()
+    .then(count => { document.getElementById('nav-mytasks-count').textContent = count; })
+    .catch(() => {});
+})();
+</script>
+</body>
+</html>

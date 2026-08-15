@@ -272,6 +272,31 @@ const Api = {
   },
 
   /**
+   * Powers timeline.html's Gantt view. No filter argument, same as
+   * boardTasks() — the tasks() resolver's own RBAC scoping already
+   * gives Admins everything and everyone else their department plus
+   * anything they're personally assigned/reporting, which is exactly
+   * the "team-wide for managers/members, org-wide for admins" scope
+   * the timeline needs. Fetched once and grouped/laid out client-side.
+   */
+  async timelineTasks() {
+    const data = await gql(
+      `query TimelineTasks {
+        tasks(page: { first: 300 }) {
+          edges {
+            node {
+              id ticketNo title status priority dueAt startDate durationMinutes createdAt
+              assignee { id fullName initials avatarColor }
+              department { id name }
+            }
+          }
+        }
+      }`
+    );
+    return data.tasks.edges.map(e => e.node);
+  },
+
+  /**
    * Powers the board's inline assignee picker: every candidate assignee
    * plus their current platform-wide open-ticket count, so you can see
    * who's already busy before reassigning. `departmentId` only narrows

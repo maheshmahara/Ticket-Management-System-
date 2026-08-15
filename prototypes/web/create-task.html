@@ -68,6 +68,12 @@
           </div>
 
           <div class="aform-field is-static">
+            <input id="start-date" type="date" placeholder=" " />
+            <label for="start-date">Start Date</label>
+            <svg class="aform-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+          </div>
+
+          <div class="aform-field is-static">
             <input id="due" type="datetime-local" placeholder=" " />
             <label for="due">Due Date &amp; Time</label>
             <svg class="aform-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
@@ -219,6 +225,7 @@ async function handleCreateTaskSubmit(e) {
   const departmentId = document.getElementById('department').value;
   const assigneeId = document.getElementById('assignee').value;
   const description = document.getElementById('desc').value.trim();
+  const startDateRaw = document.getElementById('start-date').value;
   const dueRaw = document.getElementById('due').value;
   const durationMinutes = parseInt(document.getElementById('duration').value, 10);
   const submitBtn = e.target.querySelector('button[type="submit"]');
@@ -232,6 +239,12 @@ async function handleCreateTaskSubmit(e) {
       description: description || null,
       departmentId,
       priority: selectedPriority.toUpperCase(),
+      // "YYYY-MM-DD" alone parses as UTC midnight in JS (date-only ISO
+      // strings are a spec special-case) — appending T00:00:00 forces
+      // *local* midnight instead, matching what someone picking "Aug 20"
+      // in their own timezone actually means. Same fix already applied
+      // to prefillDueFromQueryParam() above for the reverse conversion.
+      startDate: startDateRaw ? new Date(`${startDateRaw}T00:00:00`).toISOString() : null,
       dueAt: dueRaw ? new Date(dueRaw).toISOString() : null,
       durationMinutes,
       assigneeId: assigneeId || null,
