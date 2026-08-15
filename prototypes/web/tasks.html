@@ -53,13 +53,17 @@
     </nav>
 
     <div class="sidebar-footer">
-      <div class="user-chip" onclick="logout()" style="cursor:pointer" title="Sign out">
+      <a class="user-chip" href="my-profile.html" title="View profile">
         <div class="avatar" id="sidebar-avatar">TL</div>
         <div class="user-meta">
           <div class="user-name" id="sidebar-name">Loading…</div>
           <div class="user-role" id="sidebar-role">—</div>
         </div>
-      </div>
+      </a>
+      <button class="sidebar-signout-btn" onclick="logout()" title="Sign out">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+        Sign out
+      </button>
     </div>
   </aside>
 
@@ -293,8 +297,7 @@ document.getElementById('bulk-assignee').addEventListener('change', (e) => {
     const me = await Api.me();
     document.getElementById('sidebar-name').textContent = me.fullName;
     document.getElementById('sidebar-role').textContent = me.department ? me.department.name : me.role;
-    document.getElementById('sidebar-avatar').textContent = me.initials;
-    document.getElementById('sidebar-avatar').style.background = me.avatarColor;
+    setSidebarAvatar(me);
     if (me.role === 'ADMIN' || me.role === 'MANAGER') document.getElementById('nav-admin-section').style.display = '';
   } catch (err) {
     if (err.code === 'FORBIDDEN' || err.message.includes('logged in')) {
