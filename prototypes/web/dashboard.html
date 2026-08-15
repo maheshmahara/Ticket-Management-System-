@@ -156,7 +156,7 @@ requireAuth();
     document.getElementById('sidebar-avatar').textContent = me.initials;
     document.getElementById('sidebar-avatar').style.background = me.avatarColor;
     document.getElementById('page-greeting').textContent = `Good day, ${me.fullName.split(' ')[0]}`;
-    if (me.role === 'ADMIN') document.getElementById('nav-admin-section').style.display = '';
+    if (me.role === 'ADMIN' || me.role === 'MANAGER') document.getElementById('nav-admin-section').style.display = '';
 
     document.getElementById('stat-overdue').textContent = stats.overdue;
     document.getElementById('stat-progress').textContent = stats.inProgress;

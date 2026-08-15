@@ -16,6 +16,8 @@ requireAuth();
 let departmentsCache = [];
 let businessUnitsCache = [];
 let usersCache = [];
+let kpiCache = null;
+let kpiRangeMode = "week";
 
 // --- Guard + sidebar bootstrap ---
 
@@ -31,10 +33,10 @@ let usersCache = [];
     throw err;
   }
 
-  if (me.role !== "ADMIN") {
+  if (me.role !== "ADMIN" && me.role !== "MANAGER") {
     // Not a client-side-only check — every mutation below is also
-    // IsAdmin-gated server-side. This just avoids showing a
-    // Member/Manager a page that would error on every action.
+    // IsAdmin-gated server-side (and kpiReport is IsManagerOrAdmin). This
+    // just avoids showing a Member a page that would error on every action.
     location.href = "dashboard.html";
     return;
   }
@@ -49,7 +51,23 @@ let usersCache = [];
     .catch(() => {});
 
   setupTabs();
-  await loadUsersTab();
+
+  if (me.role === "MANAGER") {
+    // Users/Org Structure/Notifications are all IsAdmin-gated mutations —
+    // a Manager hitting them would just get a wall of FORBIDDEN errors.
+    // The KPI tab is the only one actually meant for them (kpiReport is
+    // IsManagerOrAdmin), so land there directly.
+    ["users", "org", "notifications"].forEach((t) => {
+      document.getElementById(`tab-btn-${t}`).style.display = "none";
+    });
+    document.querySelectorAll("#admin-tabs .pill").forEach((p) => p.classList.remove("active"));
+    document.getElementById("tab-btn-kpi").classList.add("active");
+    document.getElementById("tab-users").style.display = "none";
+    document.getElementById("tab-kpi").style.display = "";
+    await loadKpiTab();
+  } else {
+    await loadUsersTab();
+  }
 })();
 
 function setupTabs() {
@@ -63,10 +81,12 @@ function setupTabs() {
     document.getElementById("tab-users").style.display = tab === "users" ? "" : "none";
     document.getElementById("tab-org").style.display = tab === "org" ? "" : "none";
     document.getElementById("tab-notifications").style.display = tab === "notifications" ? "" : "none";
+    document.getElementById("tab-kpi").style.display = tab === "kpi" ? "" : "none";
 
     if (tab === "users" && usersCache.length === 0) loadUsersTab();
     if (tab === "org") loadOrgTab();
     if (tab === "notifications") loadNotificationsTab();
+    if (tab === "kpi" && kpiCache === null) loadKpiTab();
   });
 }
 
@@ -496,3 +516,125 @@ async function handleNotifyToggle(userId, field, checkboxEl) {
     checkboxEl.disabled = false;
   }
 }
+
+// =========================================================
+// KPI TAB — visible to ADMIN (all departments) and MANAGER (their own
+// department only, enforced server-side by kpiReport's IsManagerOrAdmin
+// gate + strict department_id scoping, not a client-side filter).
+// =========================================================
+
+/**
+ * Turns the active range mode into [start, end) ISO strings. `end` is
+ * exclusive throughout — Custom's end date gets bumped to midnight of
+ * the *next* day so tickets completed on the selected end date are
+ * actually included, not silently excluded by an inclusive-looking but
+ * actually-exclusive boundary.
+ */
+function computeRange(mode) {
+  const now = new Date();
+  if (mode === "week") {
+    const start = new Date(now);
+    start.setDate(now.getDate() - ((now.getDay() + 6) % 7)); // Monday this week
+    start.setHours(0, 0, 0, 0);
+    return { start: start.toISOString(), end: now.toISOString() };
+  }
+  if (mode === "month") {
+    const start = new Date(now.getFullYear(), now.getMonth(), 1);
+    return { start: start.toISOString(), end: now.toISOString() };
+  }
+  const startInput = document.getElementById("kpi-custom-start").value;
+  const endInput = document.getElementById("kpi-custom-end").value;
+  if (!startInput || !endInput) return null;
+  const start = new Date(`${startInput}T00:00:00`);
+  const end = new Date(`${endInput}T00:00:00`);
+  end.setDate(end.getDate() + 1);
+  return { start: start.toISOString(), end: end.toISOString() };
+}
+
+function kpiLeaderboardRow(entry, metric) {
+  const metricHtml =
+    metric === "speed"
+      ? `${formatDuration(entry.avgResolutionSeconds)} avg`
+      : `${entry.closedCount} closed`;
+  return `
+    <div class="ticket-row" style="grid-template-columns:32px 1fr 110px;cursor:default">
+      <div class="avatar-sm" style="background:${entry.avatarColor}">${entry.initials}</div>
+      <div class="ticket-title">${entry.fullName}</div>
+      <div style="font-size:13px;color:var(--text-secondary);text-align:right">${metricHtml}</div>
+    </div>
+  `;
+}
+
+function renderKpiContent(report) {
+  const deptRows = report.departments.length
+    ? report.departments
+        .map(
+          (d) => `
+        <div class="ticket-row" style="grid-template-columns:1fr 150px 110px;cursor:default">
+          <div class="ticket-title">${d.departmentName}</div>
+          <div style="font-size:13px;color:var(--text-secondary)">${formatDuration(d.avgResolutionSeconds)} avg</div>
+          <div style="font-size:13px;color:var(--text-secondary)">${d.completedCount} closed</div>
+        </div>
+      `
+        )
+        .join("")
+    : '<div style="padding:24px;text-align:center;color:var(--text-tertiary)">No tickets closed in this range.</div>';
+
+  const fastestHtml = report.fastestResolvers.length
+    ? report.fastestResolvers.map((e) => kpiLeaderboardRow(e, "speed")).join("")
+    : '<div style="padding:24px;text-align:center;color:var(--text-tertiary)">No data yet.</div>';
+
+  const mostClosedHtml = report.mostTicketsClosed.length
+    ? report.mostTicketsClosed.map((e) => kpiLeaderboardRow(e, "count")).join("")
+    : '<div style="padding:24px;text-align:center;color:var(--text-tertiary)">No data yet.</div>';
+
+  document.getElementById("kpi-content").innerHTML = `
+    <h3 class="admin-section-title">Resolution time by department</h3>
+    <div class="table-panel" style="margin-bottom:24px">${deptRows}</div>
+    <div class="two-col">
+      <div>
+        <h3 class="admin-section-title">Fastest average resolvers</h3>
+        <div class="table-panel">${fastestHtml}</div>
+      </div>
+      <div>
+        <h3 class="admin-section-title">Most tickets closed</h3>
+        <div class="table-panel">${mostClosedHtml}</div>
+      </div>
+    </div>
+  `;
+}
+
+async function loadKpiTab() {
+  setTopbarAction("");
+  const el = document.getElementById("kpi-content");
+  const range = computeRange(kpiRangeMode);
+  if (!range) {
+    el.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-tertiary)">Pick a start and end date.</div>';
+    return;
+  }
+
+  el.innerHTML = '<div style="padding:32px;text-align:center;color:var(--text-tertiary)">Loading KPIs…</div>';
+  const controls = document.querySelectorAll("#kpi-range-pills .pill, #kpi-custom-apply");
+  controls.forEach((b) => (b.disabled = true));
+
+  try {
+    const report = await Api.kpiReport(range.start, range.end);
+    kpiCache = report;
+    renderKpiContent(report);
+  } catch (err) {
+    if (handleApiError(err)) return;
+    el.innerHTML = `<div style="padding:32px;text-align:center;color:var(--danger)">Couldn't load KPIs: ${err.message}</div>`;
+  } finally {
+    controls.forEach((b) => (b.disabled = false));
+  }
+}
+
+document.getElementById("kpi-range-pills").addEventListener("click", (e) => {
+  const btn = e.target.closest(".pill");
+  if (!btn) return;
+  document.querySelectorAll("#kpi-range-pills .pill").forEach((p) => p.classList.remove("active"));
+  btn.classList.add("active");
+  kpiRangeMode = btn.dataset.range;
+  document.getElementById("kpi-custom-range").style.display = kpiRangeMode === "custom" ? "flex" : "none";
+  if (kpiRangeMode !== "custom") loadKpiTab();
+});

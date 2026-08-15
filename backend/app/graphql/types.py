@@ -162,6 +162,42 @@ class UserWorkload:
 
 
 @strawberry.type
+class DepartmentKpi:
+    department_id: strawberry.ID
+    department_name: str
+    avg_resolution_seconds: float
+    completed_count: int
+
+
+@strawberry.type
+class ResolverLeaderboardEntry:
+    """Flattens the user's identity fields directly rather than nesting
+    the shared `User` type — the aggregate query behind this only has
+    UserModel columns in scope (no eager-loaded department/branch), and
+    to_user() reads those relationships unconditionally. Flattening what
+    the query already has needs zero extra lookups; nesting a real `User`
+    here would risk MissingGreenlet or force a second query per row."""
+
+    user_id: strawberry.ID
+    full_name: str
+    avatar_color: str
+    initials: str
+    avg_resolution_seconds: float
+    closed_count: int
+
+
+@strawberry.type
+class KpiReport:
+    """Everything filters on tickets *completed* within [start, end) —
+    see analytics_service.py's module docstring for why the department
+    breakdown and both leaderboards all share that same window semantic."""
+
+    departments: list[DepartmentKpi]
+    fastest_resolvers: list[ResolverLeaderboardEntry]
+    most_tickets_closed: list[ResolverLeaderboardEntry]
+
+
+@strawberry.type
 class BulkUpdateFailure:
     id: strawberry.ID
     # "NOT_FOUND" | "FORBIDDEN" — mirrors app/graphql/errors.py's error
