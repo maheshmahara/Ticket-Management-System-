@@ -3,20 +3,63 @@
 All tokens live in [`prototypes/web/styles.css`](../prototypes/web/styles.css)
 as CSS custom properties on `:root`, and are mirrored where needed in
 [`prototypes/mobile/mobile.css`](../prototypes/mobile/mobile.css) and inline
-Tailwind classes in [`components/react/CreateTaskForm.jsx`](../components/react/CreateTaskForm.jsx).
+Tailwind classes (incl. `dark:` variants) in
+[`components/react/CreateTaskForm.jsx`](../components/react/CreateTaskForm.jsx).
+
+## Apple Design Resources this system is built on
+
+- **San Francisco (SF Pro)** system-font stack, via `-apple-system` /
+  `BlinkMacSystemFont`.
+- **SF Symbols–style iconography** — regular-weight (stroke ≈ 2px), rounded
+  line icons throughout nav, topbar, and status affordances.
+- **Apple System Colors** — the brand palette below is expressed as a real
+  light/dark *pair* per color, the same way Apple's own systemBlue /
+  systemRed / etc. tables work (e.g. systemBlue `#007AFF` light →
+  `#0A84FF` dark), not a single hex inverted at runtime.
+- **Apple System Fill Colors** — neutral hover/pressed/track surfaces use
+  the four-step `systemFill` hierarchy (`--fill-1`…`--fill-4`,
+  `rgba(120,120,128, .08/.12/.16/.2)` light, doubled-up alpha in dark)
+  instead of ad hoc black/white tints.
+- **macOS/iOS vibrancy materials** — sidebar, topbar, and the mobile nav/tab
+  bars use `saturate(180%) blur(20px)` over a translucent fill, matching
+  native chrome rather than a flat blur.
+- **Full light/dark mode** via `prefers-color-scheme`, with an explicit
+  `data-theme="dark"|"light"` override hook for manual toggles.
+
+The one deliberate departure from strict restraint: the earlier
+decorative dual-tone (blue→red) gradient border that used to outline
+*every* card, table, and divider has been replaced with Apple's plain
+hairline everywhere except the two places a brand mark actually belongs —
+the login card's top edge and the monogram/avatar fills themselves.
 
 ## Brand colors
 
 Sourced directly from the HNBG logo (`assets/branding/hnbg-logo-original.jpg`).
+Each has a dark-mode value tuned the way Apple tunes its own system
+colors for dark appearance (brighter, slightly desaturated) — see the
+`@media (prefers-color-scheme: dark)` block in `styles.css`.
 
-| Token | Hex | Usage |
+| Token | Light | Dark | Usage |
+|---|---|---|---|
+| `--accent` (HNBG Blue) | `#1c4b96` | `#4c8bdf` | Primary actions, links, focus states, "H" and "N" in logo |
+| `--accent-hover` | `#163c78` | `#6ea3e8` | Primary button hover |
+| `--danger` (HNBG Red) | `#e2231c` | `#ff453a` | Errors, overdue/high-severity states, "B" and "G" in logo |
+| `--success` | `#1db954` | `#32d74b` | Completed status (fixed — not part of the severity scale) |
+| `--warning` | `#f2a900` | `#ff9f0a` | Medium priority |
+| `--neutral` | `#8e8e93` | `#98989d` | Low priority, unassigned states |
+
+## System Fill Colors (neutral surfaces)
+
+Apple's `systemFill` hierarchy, adopted verbatim, used for hover states,
+segmented-control tracks, badge backgrounds, and anywhere a flat black/white
+tint was previously hardcoded:
+
+| Token | Light | Dark |
 |---|---|---|
-| `--accent` (HNBG Blue) | `#1c4b96` | Primary actions, links, focus states, "H" and "N" in logo |
-| `--accent-hover` | `#163c78` | Primary button hover |
-| `--danger` (HNBG Red) | `#e2231c` | Errors, overdue/high-severity states, "B" and "G" in logo |
-| `--success` | `#1db954` | Completed status (fixed — not part of the severity scale) |
-| `--warning` | `#f2a900` | Medium priority |
-| `--neutral` | `#8e8e93` | Low priority, unassigned states |
+| `--fill-1` (quaternary) | `rgba(120,120,128,.08)` | `rgba(120,120,128,.18)` |
+| `--fill-2` (tertiary) | `rgba(120,120,128,.12)` | `rgba(120,120,128,.24)` |
+| `--fill-3` (secondary) | `rgba(120,120,128,.16)` | `rgba(120,120,128,.32)` |
+| `--fill-4` (primary) | `rgba(120,120,128,.2)` | `rgba(120,120,128,.4)` |
 
 ### Severity scale (dashboard stat cards)
 
@@ -33,26 +76,32 @@ completed count is a good thing, not a warning.
 | Pending (highest) | 128 | `#e2231c` (pure red) |
 | Completed | 341 | `#1db954` (always green) |
 
-### Gradient borders
+### Borders
 
-Cards, panels, tables, sidebar, and topbar borders use a diagonal or
-horizontal `linear-gradient(#1c4b96 → #e2231c)` instead of flat gray, applied
-via the `background: … padding-box, gradient … border-box` CSS technique so
-gradients respect `border-radius`. Alpha is tuned down (`0.2`–`0.5`) on line
-dividers so dense areas (tables) don't feel noisy.
+Cards, panels, tables, sidebar, and topbar borders are a plain 1px
+`--border` hairline — Apple's own restraint, not a decorative gradient.
+The HNBG blue→red gradient survives in exactly two places, both of which
+are legitimately "the brand mark" rather than chrome: the login card's
+3px top edge (`border-image: linear-gradient(90deg, #1c4b96, #e2231c)`)
+and the monogram/avatar circle fills (`linear-gradient(135deg, #1c4b96,
+#e2231c)`).
 
 ## Neutral palette
 
-| Token | Hex |
-|---|---|
-| `--bg` | `#f5f5f7` |
-| `--surface` | `#ffffff` |
-| `--surface-alt` | `#fbfbfd` |
-| `--text-primary` | `#1d1d1f` |
-| `--text-secondary` | `#6e6e73` |
-| `--text-tertiary` | `#86868b` |
-| `--border` | `rgba(0,0,0,0.08)` |
-| `--border-strong` | `rgba(0,0,0,0.12)` |
+| Token | Light | Dark |
+|---|---|---|
+| `--bg` | `#f5f5f7` | `#000000` |
+| `--surface` | `#ffffff` | `#1c1c1e` |
+| `--surface-alt` | `#fbfbfd` | `#232326` |
+| `--text-primary` | `#1d1d1f` | `#f5f5f7` |
+| `--text-secondary` | `#6e6e73` | `#98989d` |
+| `--text-tertiary` | `#86868b` | `#6e6e73` |
+| `--border` | `rgba(0,0,0,.09)` | `rgba(255,255,255,.1)` |
+| `--border-strong` | `rgba(0,0,0,.14)` | `rgba(255,255,255,.16)` |
+| `--sidebar-bg` / `--topbar-bg` | translucent white/off-white | translucent near-black |
+
+See [System Fill Colors](#system-fill-colors-neutral-surfaces) above for
+the hover/pressed-state tokens.
 
 ## Typography
 
@@ -95,3 +144,12 @@ Used in the Create Task form (`prototypes/web/create-task.html` and
   animation — selects always have a value).
 - Focused field gets a warm `--surface-alt` background wash and a bottom
   accent line (blue normally, red if the field is in an error state).
+
+`CreateTaskForm.jsx` mirrors the CSS tokens as literal Tailwind arbitrary
+values plus a `dark:` variant on every color-bearing class (background,
+border, text, focus/hover/active states) — including the priority
+segmented control and assignee avatar palette, which were re-pointed from
+generic blues/reds to the exact brand + system-fill hex values used
+everywhere else. It has no build step of its own; `create-task-preview.html`
+fetches the `.jsx` source directly and transpiles only the JSX with Babel,
+so the preview can never drift from the production component.
