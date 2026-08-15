@@ -80,6 +80,7 @@
         <button class="pill" data-tab="org" id="tab-btn-org">Org Structure</button>
         <button class="pill" data-tab="notifications" id="tab-btn-notifications">Notifications</button>
         <button class="pill" data-tab="kpi" id="tab-btn-kpi">KPIs</button>
+        <button class="pill" data-tab="requests" id="tab-btn-requests">Pending Requests</button>
       </div>
 
       <!-- USERS TAB -->
@@ -173,6 +174,18 @@
 
         <div id="kpi-content">
           <div style="padding:32px;text-align:center;color:var(--text-tertiary)">Loading KPIs…</div>
+        </div>
+      </section>
+
+      <!-- PENDING REQUESTS TAB -->
+      <section id="tab-requests" style="display:none">
+        <div class="table-panel">
+          <div class="admin-user-head" style="grid-template-columns:1.6fr 1fr 1fr 1fr 160px">
+            <span>Name</span><span>Current Role</span><span>Requested Role</span><span>Department</span><span></span>
+          </div>
+          <div id="requests-rows">
+            <div style="padding:32px;text-align:center;color:var(--text-tertiary)">Loading…</div>
+          </div>
         </div>
       </section>
     </div>
