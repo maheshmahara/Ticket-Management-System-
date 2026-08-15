@@ -16,6 +16,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.graphql.permissions import can_edit_task
 from app.models.branch import Branch
 from app.models.comment import Comment
 from app.models.notification_log import NotificationTrigger
@@ -165,6 +166,76 @@ async def change_task_status(db: AsyncSession, *, task: Task, status: TaskStatus
     _apply_status(task, status)
     await db.commit()
     return await get_task(db, task.id)
+
+
+async def bulk_update_tasks(
+    db: AsyncSession,
+    *,
+    actor: User,
+    task_ids: list[uuid.UUID],
+    status: TaskStatus | None = None,
+    priority: TaskPriority | None = None,
+    assignee_id: uuid.UUID | None = None,
+) -> tuple[list[tuple[uuid.UUID, str]], list[Task]]:
+    """Partial-success bulk update: applies whatever fields were given to
+    every task the actor can edit, skips (and reports) the rest rather
+    than failing the whole batch. `can_edit_task` is genuinely reachable
+    per-task divergence in a bulk selection — e.g. a Manager can *view*
+    (but not edit) a cross-department task assigned to them.
+
+    `assignee_id` here always means "reassign to this person" — there's
+    no bulk-unassign requirement, so unlike single-task `update_task`
+    there's no separate "clear assignee" signal to thread through.
+
+    Same per-row-commit convention as every other write in this module —
+    no new transaction machinery, no all-or-nothing rollback. Notification
+    logic mirrors `update_task`'s exactly (assignee change -> instant
+    notification any priority; else priority escalated into
+    HIGH/URGENT -> PRIORITY_ESCALATED), just looped per task instead of
+    applied to one.
+
+    Returns (failures, updated_tasks) where failures is a list of
+    (task_id, reason) — reason is "NOT_FOUND" or "FORBIDDEN".
+    """
+    failures: list[tuple[uuid.UUID, str]] = []
+    updated: list[Task] = []
+
+    for task_id in task_ids:
+        task = await get_task(db, task_id)
+        if task is None:
+            failures.append((task_id, "NOT_FOUND"))
+            continue
+        if not can_edit_task(actor, task):
+            failures.append((task_id, "FORBIDDEN"))
+            continue
+        # Mirrors assign_task's own rule — see the RBAC matrix in
+        # docs/BACKEND_ARCHITECTURE.md.
+        if assignee_id is not None and actor.role.value == "member" and assignee_id != actor.id:
+            failures.append((task_id, "FORBIDDEN"))
+            continue
+
+        previously_notifiable = task.priority in NOTIFIABLE_PRIORITIES
+        assignee_changed = False
+
+        if status is not None:
+            _apply_status(task, status)
+        if priority is not None:
+            task.priority = priority
+        if assignee_id is not None:
+            assignee_changed = assignee_id != task.assignee_id
+            task.assignee_id = assignee_id
+
+        await db.commit()
+        task = await get_task(db, task.id)
+        updated.append(task)
+
+        now_notifiable = task.priority in NOTIFIABLE_PRIORITIES
+        if assignee_changed and task.assignee_id is not None:
+            enqueue_assignment_notification(task)
+        elif not previously_notifiable and now_notifiable:
+            enqueue_if_needed(task, NotificationTrigger.PRIORITY_ESCALATED)
+
+    return failures, updated
 
 
 async def delete_task(db: AsyncSession, *, task: Task) -> None:

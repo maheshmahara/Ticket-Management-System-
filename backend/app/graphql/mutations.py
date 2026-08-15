@@ -24,6 +24,9 @@ from app.graphql.permissions import IsAdmin, IsAuthenticated, can_edit_task, can
 from app.graphql.types import (
     AuthPayload,
     Branch,
+    BulkTaskUpdateInput,
+    BulkUpdateFailure,
+    BulkUpdateResult,
     BusinessUnit,
     Comment,
     CreateBranchInput,
@@ -37,6 +40,7 @@ from app.graphql.types import (
 )
 from app.graphql.types import TaskStatus as GqlTaskStatus
 from app.graphql.types import UpdateTaskInput, User
+from app.models.task import TaskPriority as TaskPriorityModel
 from app.models.task import TaskStatus as TaskStatusModel
 from app.services import org_service, task_service
 from app.services.user_service import get_user_by_email, get_user_by_id
@@ -135,6 +139,36 @@ class Mutation:
 
         task = await task_service.change_task_status(db, task=task, status=TaskStatusModel(status.value))
         return to_task(task)
+
+    @strawberry.mutation(permission_classes=[IsAuthenticated])
+    async def bulk_update_tasks(
+        self, info: Info, ids: list[strawberry.ID], input: BulkTaskUpdateInput
+    ) -> BulkUpdateResult:
+        """Field-level gate is just IsAuthenticated, same as the
+        single-task mutations above — the real authorization is the
+        per-task can_edit_task check inside task_service.bulk_update_tasks,
+        since a Member legitimately needs to bulk-update their own tasks."""
+        if not ids:
+            raise app_error("VALIDATION_ERROR", "Select at least one task.")
+        if input.status is None and input.priority is None and input.assignee_id is None:
+            raise app_error("VALIDATION_ERROR", "Choose a status, assignee, or priority to apply.")
+
+        db = info.context.db
+        actor = info.context.user
+
+        failures, updated = await task_service.bulk_update_tasks(
+            db,
+            actor=actor,
+            task_ids=[uuid.UUID(str(i)) for i in ids],
+            status=TaskStatusModel(input.status.value) if input.status is not None else None,
+            priority=TaskPriorityModel(input.priority.value) if input.priority is not None else None,
+            assignee_id=uuid.UUID(str(input.assignee_id)) if input.assignee_id is not None else None,
+        )
+        return BulkUpdateResult(
+            success_count=len(updated),
+            failures=[BulkUpdateFailure(id=strawberry.ID(str(fid)), reason=reason) for fid, reason in failures],
+            tasks=[to_task(t) for t in updated],
+        )
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def delete_task(self, info: Info, id: strawberry.ID) -> bool:
