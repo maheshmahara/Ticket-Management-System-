@@ -132,6 +132,25 @@ ul { list-style: none; margin: 0; padding: 0; }
 
 ::selection { background: var(--accent); color: #fff; }
 
+/* Browser autofill (Chrome/Safari/Edge) paints its own yellow/blue fill
+   and overrides text color directly on the input, ignoring our
+   background/color rules entirely — including in dark mode, where the
+   default yellow reads as a jarring, un-themed patch. Neutralize it by
+   painting over the fill with an inset box-shadow (the standard trick,
+   since background-color itself can't override autofill) and forcing
+   text color back to our own token. The absurd transition delay stops
+   the browser's fill from flashing in before our shadow paints over it. */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--text-primary);
+  -webkit-box-shadow: 0 0 0 1000px var(--surface-alt) inset;
+  box-shadow: 0 0 0 1000px var(--surface-alt) inset;
+  caret-color: var(--text-primary);
+  transition: background-color 9999s ease-in-out 0s;
+}
+
 /* ---------- App Shell ---------- */
 
 .app-shell {
