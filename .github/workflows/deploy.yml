@@ -10,6 +10,15 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
 jobs:
   lint:
     name: Lint HTML/CSS
@@ -44,20 +53,28 @@ jobs:
           PY
 
   deploy-preview:
-    name: Deploy static preview
+    name: Deploy to GitHub Pages
     needs: lint
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
-      - name: Upload prototype as artifact
-        uses: actions/upload-artifact@v4
+      # Static prototype only — no build step needed. Note this serves
+      # prototypes/web as the site root, so js/api.js's GraphQL calls to
+      # http://localhost:8000/graphql will fail with no local backend
+      # running; the pages render, but data stays on "—"/empty states.
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload prototype as Pages artifact
+        uses: actions/upload-pages-artifact@v3
         with:
-          name: hnbg-web-prototype
           path: prototypes/web
 
-      # Swap this step for your real static host (Vercel/Netlify/S3/Pages)
-      # once you're ready to publish a shareable preview URL.
-      - name: Placeholder deploy step
-        run: echo "Add a deploy step for your static hosting provider here."
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
