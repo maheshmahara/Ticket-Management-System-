@@ -121,10 +121,44 @@ const Api = {
   async me() {
     const data = await gql(
       `query Me {
-        me { id fullName role avatarColor initials department { id name } }
+        me {
+          id email fullName role avatarColor initials department { id name }
+          jobTitle phoneNumber photoBase64 profileCompletedAt requestedRole
+        }
       }`
     );
     return data.me;
+  },
+
+  /**
+   * Self-service: department/job title/phone/photo. `input.photoBase64`
+   * is the resized/compressed payload from resizeImageToBase64() in
+   * my-profile.html — this method doesn't touch the image itself.
+   * Returns the fields my-profile.html needs to redraw itself after a
+   * save, including profileCompletedAt (so the page can tell whether
+   * onboarding just finished and redirect).
+   */
+  async updateMyProfile(input) {
+    const data = await gql(
+      `mutation($input: UpdateMyProfileInput!) {
+        updateMyProfile(input: $input) {
+          id department { id name } jobTitle phoneNumber photoBase64 profileCompletedAt
+        }
+      }`,
+      { input }
+    );
+    return data.updateMyProfile;
+  },
+
+  /** Pass null to withdraw a pending request. Never changes what's
+   * actually enforced — see backend/app/graphql/mutations.py's
+   * request_role_change docstring. */
+  async requestRoleChange(role) {
+    const data = await gql(
+      `mutation($role: Role) { requestRoleChange(role: $role) { role requestedRole } }`,
+      { role: role || null }
+    );
+    return data.requestRoleChange;
   },
 
   async dashboardStats() {
@@ -423,6 +457,25 @@ const Api = {
     );
     return data.resetUserPassword;
   },
+
+  async pendingRoleRequests() {
+    const data = await gql(
+      `query { pendingRoleRequests {
+        id fullName email role requestedRole initials avatarColor department { name }
+      } }`
+    );
+    return data.pendingRoleRequests;
+  },
+
+  async respondToRoleRequest(userId, approve) {
+    const data = await gql(
+      `mutation($userId: ID!, $approve: Boolean!) {
+        respondToRoleRequest(userId: $userId, approve: $approve) { id role requestedRole }
+      }`,
+      { userId, approve }
+    );
+    return data.respondToRoleRequest;
+  },
 };
 
 // --- Shared render helpers (status/priority -> the CSS classes already
@@ -449,6 +502,25 @@ function avatarInitials(person) {
 
 function avatarColor(person) {
   return person ? person.avatarColor : "var(--neutral)";
+}
+
+/**
+ * Fills the sidebar's #sidebar-avatar chip for the logged-in user — real
+ * photo if they've uploaded one (me.photoBase64, set via my-profile.html),
+ * colored initials otherwise. Shared across every page with a sidebar so
+ * "upload a photo" actually shows up everywhere you navigate, not just on
+ * the profile page itself.
+ */
+function setSidebarAvatar(me) {
+  const el = document.getElementById("sidebar-avatar");
+  if (!el) return;
+  if (me.photoBase64) {
+    el.style.background = "transparent";
+    el.innerHTML = `<img src="data:image/jpeg;base64,${me.photoBase64}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;display:block" alt="" />`;
+  } else {
+    el.style.background = me.avatarColor;
+    el.textContent = me.initials;
+  }
 }
 
 /** Seconds -> "2d 4h" / "3h 15m" / "42m" for the KPI panel's resolution-time

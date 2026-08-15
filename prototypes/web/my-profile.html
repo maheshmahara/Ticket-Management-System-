@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>My Profile — HNBG</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="brand">
+      <img src="hnbg-mark.png" alt="HNBG" class="brand-logo" />
+      <div class="brand-text">
+        <div class="brand-tagline"><span class="c-blue">Hokkaido</span> <span class="c-blue">Nepal</span> <span class="c-red">Business</span> <span class="c-red">Group</span></div>
+        <div class="brand-subtitle"><span class="c-blue">HN</span><span class="c-red">BG</span> <span class="brand-tms">TMS</span></div>
+      </div>
+    </div>
+
+    <nav class="nav-section">
+      <div class="nav-label">Workspace</div>
+      <a class="nav-item" href="dashboard.html">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Dashboard
+      </a>
+      <a class="nav-item" href="tasks.html">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3 8-8"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        My Tasks
+        <span class="count-badge" id="nav-mytasks-count">–</span>
+      </a>
+      <a class="nav-item" href="board.html">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="10" rx="1"/><rect x="17" y="4" width="5" height="13" rx="1"/></svg>
+        Board
+      </a>
+      <a class="nav-item" href="#">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+        Calendar
+      </a>
+      <a class="nav-item" href="#">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        Timeline
+      </a>
+    </nav>
+
+    <nav class="nav-section" id="nav-admin-section" style="display:none">
+      <div class="nav-label">System</div>
+      <a class="nav-item" href="admin.html">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16Z"/><path d="M12 8v4l3 3"/></svg>
+        Admin Panel
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <a class="user-chip active" href="my-profile.html" title="View profile">
+        <div class="avatar" id="sidebar-avatar">TL</div>
+        <div class="user-meta">
+          <div class="user-name" id="sidebar-name">Loading…</div>
+          <div class="user-role" id="sidebar-role">—</div>
+        </div>
+      </a>
+      <button class="sidebar-signout-btn" onclick="logout()" title="Sign out">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+        Sign out
+      </button>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <header class="topbar">
+      <div class="page-title">My Profile</div>
+    </header>
+
+    <div class="content" style="max-width:640px">
+
+      <div id="onboarding-banner" class="profile-onboarding-banner" style="display:none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;color:var(--accent)"><circle cx="12" cy="12" r="9"/><path d="M12 8v5M12 16h.01"/></svg>
+        <div>Welcome to HNBG TMS — please add your department and phone number below to continue.</div>
+      </div>
+
+      <div class="panel profile-header">
+        <div class="profile-photo-frame">
+          <img id="profile-photo-img" class="profile-photo" style="display:none" alt="" />
+          <div id="profile-photo-fallback" class="profile-photo-fallback">?</div>
+          <div class="profile-photo-edit" onclick="document.getElementById('photo-input').click()" title="Change photo">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+          </div>
+          <input id="photo-input" type="file" accept="image/*" style="display:none" onchange="handlePhotoSelected(event)" />
+        </div>
+        <div class="profile-identity">
+          <div class="profile-name" id="profile-name">Loading…</div>
+          <div class="profile-email" id="profile-email">—</div>
+          <span class="role-badge" id="profile-role-badge">—</span>
+          <div id="remove-photo-link" class="profile-remove-photo" style="display:none;cursor:pointer" onclick="handleRemovePhoto()">Remove photo</div>
+        </div>
+      </div>
+
+      <div class="panel" style="padding:24px">
+        <h3 class="admin-section-title">Contact details</h3>
+        <div class="field">
+          <label for="pf-department">Department</label>
+          <select id="pf-department"><option value="">Loading…</option></select>
+        </div>
+        <div class="field">
+          <label for="pf-jobtitle">Job title</label>
+          <input id="pf-jobtitle" type="text" placeholder="e.g. Store Manager" />
+        </div>
+        <div class="field mb-0">
+          <label for="pf-phone">Phone number</label>
+          <input id="pf-phone" type="text" placeholder="+9779800000000" />
+        </div>
+        <div class="profile-save-row mt-24">
+          <button class="btn btn-primary" id="profile-save-btn" onclick="handleSaveProfile()">Save changes</button>
+          <span id="profile-saved-msg" class="profile-saved-msg" style="display:none">✓ Saved</span>
+          <span id="profile-error-msg" style="display:none;color:var(--danger);font-size:12.5px"></span>
+        </div>
+      </div>
+
+      <div class="panel" style="padding:24px">
+        <h3 class="admin-section-title">Permission role</h3>
+        <p style="font-size:13px;color:var(--text-secondary);margin-top:-8px;margin-bottom:16px">
+          Your current role is shown above. Requesting a different role doesn't change what you can do right
+          away — an admin has to approve it first.
+        </p>
+        <div id="role-request-current" style="display:none"></div>
+        <div id="role-request-form" style="display:flex;gap:10px;align-items:flex-end">
+          <div class="field mb-0" style="flex:1">
+            <label for="pf-role-request">Request a different role</label>
+            <select id="pf-role-request">
+              <option value="">— Select a role —</option>
+              <option value="MEMBER">Member</option>
+              <option value="MANAGER">Manager</option>
+              <option value="ADMIN">Admin</option>
+            </select>
+          </div>
+          <button class="btn btn-secondary" onclick="handleRequestRole()">Request this role</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="js/api.js"></script>
+<script>
+requireAuth();
+
+const PHOTO_MAX_DIM = 200;
+const PHOTO_JPEG_QUALITY = 0.7;
+
+let currentMe = null;
+let isOnboarding = false;
+let pendingPhotoBase64 = null; // set once a new photo is picked, cleared after save
+let photoRemoveQueued = false;
+
+/**
+ * FileReader -> Image -> canvas cover-crop to 200x200 -> JPEG q=0.7,
+ * stripping the "data:image/jpeg;base64," prefix (the server stores/
+ * returns the raw payload only; renderPhoto() re-adds the prefix).
+ * 200x200 is crisp for every avatar spot this app renders one at
+ * (32px sidebar chip, 88px profile header) without wasting bytes on a
+ * photo that never displays larger than a small circle anywhere.
+ */
+function resizeImageToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("Could not read that file."));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("That file doesn't look like a valid image."));
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = PHOTO_MAX_DIM;
+        canvas.height = PHOTO_MAX_DIM;
+        const ctx = canvas.getContext("2d");
+        const scale = Math.max(PHOTO_MAX_DIM / img.width, PHOTO_MAX_DIM / img.height);
+        const sw = PHOTO_MAX_DIM / scale, sh = PHOTO_MAX_DIM / scale;
+        const sx = (img.width - sw) / 2, sy = (img.height - sh) / 2;
+        ctx.drawImage(img, sx, sy, sw, sh, 0, 0, PHOTO_MAX_DIM, PHOTO_MAX_DIM);
+        resolve(canvas.toDataURL("image/jpeg", PHOTO_JPEG_QUALITY).split(",")[1]);
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function renderPhoto(base64) {
+  const img = document.getElementById("profile-photo-img");
+  const fallback = document.getElementById("profile-photo-fallback");
+  const removeLink = document.getElementById("remove-photo-link");
+  if (base64) {
+    img.src = `data:image/jpeg;base64,${base64}`;
+    img.style.display = "";
+    fallback.style.display = "none";
+    removeLink.style.display = "";
+  } else {
+    img.style.display = "none";
+    fallback.style.display = "flex";
+    fallback.textContent = currentMe ? currentMe.initials : "?";
+    removeLink.style.display = "none";
+  }
+}
+
+async function handlePhotoSelected(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  try {
+    pendingPhotoBase64 = await resizeImageToBase64(file);
+    photoRemoveQueued = false;
+    renderPhoto(pendingPhotoBase64);
+  } catch (err) {
+    showProfileError(err.message);
+  }
+  e.target.value = ""; // allow re-picking the same file later
+}
+
+function handleRemovePhoto() {
+  pendingPhotoBase64 = null;
+  photoRemoveQueued = true;
+  renderPhoto(null);
+}
+
+function showProfileError(msg) {
+  const el = document.getElementById("profile-error-msg");
+  el.textContent = msg;
+  el.style.display = "";
+  document.getElementById("profile-saved-msg").style.display = "none";
+}
+
+function renderRoleRequestPanel(me) {
+  const currentEl = document.getElementById("role-request-current");
+  const formEl = document.getElementById("role-request-form");
+  if (me.requestedRole) {
+    currentEl.style.display = "";
+    formEl.style.display = "none";
+    currentEl.innerHTML = `
+      <div class="role-request-pill">
+        <span>Pending: requested <strong>${me.requestedRole}</strong> — awaiting admin approval.</span>
+        <a onclick="handleCancelRoleRequest()" style="cursor:pointer">Cancel request</a>
+      </div>
+    `;
+  } else {
+    currentEl.style.display = "none";
+    formEl.style.display = "flex";
+    document.getElementById("pf-role-request").value = "";
+  }
+}
+
+async function handleRequestRole() {
+  const role = document.getElementById("pf-role-request").value;
+  if (!role) return;
+  try {
+    const result = await Api.requestRoleChange(role);
+    currentMe.requestedRole = result.requestedRole;
+    renderRoleRequestPanel(currentMe);
+  } catch (err) {
+    if (err.code === "FORBIDDEN" || err.message.includes("logged in")) { logout(); return; }
+    alert(`Couldn't request that role: ${err.message}`);
+  }
+}
+
+async function handleCancelRoleRequest() {
+  try {
+    const result = await Api.requestRoleChange(null);
+    currentMe.requestedRole = result.requestedRole;
+    renderRoleRequestPanel(currentMe);
+  } catch (err) {
+    if (err.code === "FORBIDDEN" || err.message.includes("logged in")) { logout(); return; }
+    alert(`Couldn't cancel that request: ${err.message}`);
+  }
+}
+
+async function handleSaveProfile() {
+  const btn = document.getElementById("profile-save-btn");
+  document.getElementById("profile-error-msg").style.display = "none";
+  document.getElementById("profile-saved-msg").style.display = "none";
+  btn.disabled = true;
+  btn.textContent = "Saving…";
+
+  const input = {
+    departmentId: document.getElementById("pf-department").value || null,
+    jobTitle: document.getElementById("pf-jobtitle").value.trim() || null,
+    phoneNumber: document.getElementById("pf-phone").value.trim() || null,
+  };
+  if (pendingPhotoBase64) input.photoBase64 = pendingPhotoBase64;
+  if (photoRemoveQueued) input.removePhoto = true;
+
+  try {
+    const updated = await Api.updateMyProfile(input);
+    pendingPhotoBase64 = null;
+    photoRemoveQueued = false;
+
+    const justCompleted = isOnboarding && updated.profileCompletedAt;
+    if (justCompleted) {
+      location.href = "dashboard.html";
+      return;
+    }
+
+    document.getElementById("profile-saved-msg").style.display = "";
+    currentMe.department = updated.department;
+    currentMe.jobTitle = updated.jobTitle;
+    currentMe.phoneNumber = updated.phoneNumber;
+    currentMe.photoBase64 = updated.photoBase64;
+    setSidebarAvatar(currentMe); // reflect a just-uploaded/removed photo immediately
+  } catch (err) {
+    if (err.code === "FORBIDDEN" || err.message.includes("logged in")) { logout(); return; }
+    showProfileError(err.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Save changes";
+  }
+}
+
+(async function init() {
+  let me;
+  try {
+    me = await Api.me();
+  } catch (err) {
+    if (err.code === "FORBIDDEN" || err.message.includes("logged in")) { logout(); return; }
+    throw err;
+  }
+  currentMe = me;
+  isOnboarding = !me.profileCompletedAt;
+
+  document.getElementById("sidebar-name").textContent = me.fullName;
+  document.getElementById("sidebar-role").textContent = me.department ? me.department.name : me.role;
+  setSidebarAvatar(me);
+  if (me.role === "ADMIN" || me.role === "MANAGER") document.getElementById("nav-admin-section").style.display = "";
+
+  document.getElementById("profile-name").textContent = me.fullName;
+  document.getElementById("profile-email").textContent = me.email || "No email on file";
+  const roleBadge = document.getElementById("profile-role-badge");
+  roleBadge.textContent = me.role;
+  roleBadge.className = `role-badge ${me.role.toLowerCase()}`;
+  renderPhoto(me.photoBase64);
+  renderRoleRequestPanel(me);
+
+  if (isOnboarding) document.getElementById("onboarding-banner").style.display = "flex";
+
+  document.getElementById("pf-jobtitle").value = me.jobTitle || "";
+  document.getElementById("pf-phone").value = me.phoneNumber || "";
+
+  try {
+    const departments = await Api.departments();
+    const select = document.getElementById("pf-department");
+    select.innerHTML =
+      '<option value="">Unassigned</option>' +
+      departments.map((d) => `<option value="${d.id}" ${me.department && d.id === me.department.id ? "selected" : ""}>${d.name}</option>`).join("");
+  } catch (err) {
+    // non-fatal — the field just won't have options to pick from
+  }
+
+  Api.myTasksBadgeCount()
+    .then((count) => { document.getElementById("nav-mytasks-count").textContent = count; })
+    .catch(() => {});
+})();
+</script>
+</body>
+</html>
