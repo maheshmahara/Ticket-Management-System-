@@ -80,9 +80,38 @@
     </header>
 
     <div class="content" style="max-width:none">
-      <div style="padding:64px 32px;text-align:center;color:var(--text-tertiary)">
-        The Gantt-style schedule view is on the way — start dates, task
-        bars, and bottleneck highlighting land next.
+      <div class="cal-toolbar">
+        <div class="cal-nav-group">
+          <button class="btn btn-secondary" onclick="goToday()">Today</button>
+          <button class="cal-chevron-btn" onclick="goPrev()" title="Previous month">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <button class="cal-chevron-btn" onclick="goNext()" title="Next month">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+          <div class="cal-title" id="tl-title">&nbsp;</div>
+        </div>
+        <label class="tl-toggle-row">
+          <input type="checkbox" id="tl-hide-done" checked onchange="render()" />
+          Hide Done
+        </label>
+      </div>
+
+      <div id="tl-loading" style="padding:64px 32px;text-align:center;color:var(--text-tertiary)">Loading the timeline…</div>
+
+      <div id="tl-content" style="display:none">
+        <div class="tl-grid-wrap">
+          <div class="tl-header" id="tl-header"></div>
+          <div class="tl-body" id="tl-body"></div>
+        </div>
+        <div class="cal-legend">
+          <span class="cal-legend-swatch" style="background:var(--neutral)"></span> Low
+          <span class="cal-legend-swatch" style="background:var(--warning)"></span> Medium
+          <span class="cal-legend-swatch" style="background:#ff9500"></span> High
+          <span class="cal-legend-swatch" style="background:var(--danger)"></span> Urgent
+          <span class="cal-legend-swatch" style="border:2px solid var(--danger);background:none"></span> Overlapping (bottleneck)
+          <span style="margin-left:6px">— bar fill shows progress. Click a bar to open the task.</span>
+        </div>
       </div>
     </div>
   </div>
@@ -91,6 +120,237 @@
 <script src="js/api.js"></script>
 <script>
 requireAuth();
+
+const PRIORITY_BAR_COLOR = { LOW: 'var(--neutral)', MEDIUM: 'var(--warning)', HIGH: '#ff9500', URGENT: 'var(--danger)' };
+const MONTH_LABEL = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+let anchorDate = new Date();
+let allTasks = [];
+
+/** PENDING/IN_PROGRESS/REVIEW/DONE -> 0/50/80/100. Derived from status
+ * rather than a stored field — see the Timeline plan's rationale for
+ * not adding a progress_percent column: it's an honest derivation
+ * (there's no finer-grained "how done is it" signal in this app today)
+ * and avoids a field nothing else would ever read or write. */
+function progressPercent(status) {
+  if (status === 'DONE') return 100;
+  if (status === 'REVIEW') return 80;
+  if (status === 'IN_PROGRESS') return 50;
+  return 0;
+}
+
+function daysInMonth(year, monthIndex) {
+  return new Date(year, monthIndex + 1, 0).getDate();
+}
+
+function dayIndexInMonth(date, monthStart, monthDayCount) {
+  const diff = Math.floor((stripTime(date) - stripTime(monthStart)) / 86400000);
+  return Math.max(0, Math.min(monthDayCount - 1, diff));
+}
+
+function stripTime(date) {
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+}
+
+/**
+ * Sort an assignee's tasks by effective start day, cluster by
+ * date-range overlap, and greedily assign each task in a cluster to
+ * the first lane whose last-placed task has already ended — same
+ * clustering shape as calendar.html's layoutDayTasks(), generalized
+ * from minute-of-day spans to whole-day spans. Any cluster with 2+
+ * tasks *is* the bottleneck signal: those tasks get isBottleneck=true
+ * and stack into separate visual lanes instead of overlapping.
+ */
+function layoutTimelineRows(tasksForRow, monthStart, monthDayCount) {
+  const items = tasksForRow
+    .map((task) => {
+      const start = dayIndexInMonth(task.effectiveStart, monthStart, monthDayCount);
+      const end = dayIndexInMonth(task.dueDate, monthStart, monthDayCount);
+      return { task, start: Math.min(start, end), end: Math.max(start, end) };
+    })
+    .sort((a, b) => a.start - b.start || a.end - b.end);
+
+  const results = [];
+  let cluster = [];
+  let clusterEnd = -1;
+
+  function flushCluster() {
+    if (cluster.length === 0) return;
+    const laneEnds = [];
+    const laneOf = [];
+    for (const item of cluster) {
+      let placed = -1;
+      for (let l = 0; l < laneEnds.length; l++) {
+        if (laneEnds[l] < item.start) {
+          laneEnds[l] = item.end;
+          placed = l;
+          break;
+        }
+      }
+      if (placed === -1) {
+        laneEnds.push(item.end);
+        placed = laneEnds.length - 1;
+      }
+      laneOf.push(placed);
+    }
+    const numLanes = laneEnds.length;
+    const isBottleneck = cluster.length > 1;
+    cluster.forEach((item, i) => {
+      results.push({ task: item.task, start: item.start, end: item.end, lane: laneOf[i], numLanes, isBottleneck });
+    });
+    cluster = [];
+    clusterEnd = -1;
+  }
+
+  for (const item of items) {
+    if (cluster.length > 0 && item.start > clusterEnd) flushCluster();
+    cluster.push(item);
+    clusterEnd = Math.max(clusterEnd, item.end);
+  }
+  flushCluster();
+
+  return results;
+}
+
+function goToday() {
+  anchorDate = new Date();
+  render();
+}
+
+function goPrev() {
+  anchorDate = new Date(anchorDate.getFullYear(), anchorDate.getMonth() - 1, 1);
+  render();
+}
+
+function goNext() {
+  anchorDate = new Date(anchorDate.getFullYear(), anchorDate.getMonth() + 1, 1);
+  render();
+}
+
+function render() {
+  const year = anchorDate.getFullYear();
+  const monthIndex = anchorDate.getMonth();
+  const monthStart = new Date(year, monthIndex, 1);
+  const monthDayCount = daysInMonth(year, monthIndex);
+  const monthEnd = new Date(year, monthIndex, monthDayCount);
+  const today = new Date();
+  const hideDone = document.getElementById('tl-hide-done').checked;
+
+  document.getElementById('tl-title').textContent = `${MONTH_LABEL[monthIndex]} ${year}`;
+
+  // Tasks with no dueAt can't draw a bar (no right edge) — same rule
+  // calendar.html applies to tasks with no due date at all. Effective
+  // start falls back to createdAt for tasks that never set startDate.
+  const candidates = allTasks
+    .filter(t => t.dueAt)
+    .filter(t => !hideDone || t.status !== 'DONE')
+    .map(t => ({
+      ...t,
+      effectiveStart: t.startDate ? new Date(t.startDate) : new Date(t.createdAt),
+      dueDate: new Date(t.dueAt),
+    }))
+    .filter(t => t.effectiveStart <= monthEnd && t.dueDate >= monthStart);
+
+  // Group by assignee, "Unassigned" bucket last.
+  const groups = new Map(); // key -> { label, avatar, tasks: [] }
+  for (const t of candidates) {
+    const key = t.assignee ? t.assignee.id : '__unassigned__';
+    if (!groups.has(key)) {
+      groups.set(key, {
+        label: t.assignee ? t.assignee.fullName : 'Unassigned',
+        initials: t.assignee ? t.assignee.initials : '—',
+        color: t.assignee ? t.assignee.avatarColor : 'var(--neutral)',
+        tasks: [],
+      });
+    }
+    groups.get(key).tasks.push(t);
+  }
+  const rows = [...groups.entries()]
+    .sort(([keyA, a], [keyB, b]) => {
+      if (keyA === '__unassigned__') return 1;
+      if (keyB === '__unassigned__') return -1;
+      return a.label.localeCompare(b.label);
+    });
+
+  // Header: one spacer cell + one cell per day of the visible month.
+  const columnTemplate = `220px repeat(${monthDayCount}, minmax(26px, 1fr))`;
+  const headerEl = document.getElementById('tl-header');
+  headerEl.style.gridTemplateColumns = columnTemplate;
+  const WEEKDAY_INITIAL = ['S','M','T','W','T','F','S'];
+  let headerHtml = '<div class="tl-header-spacer"></div>';
+  for (let d = 1; d <= monthDayCount; d++) {
+    const cellDate = new Date(year, monthIndex, d);
+    const isWeekend = cellDate.getDay() === 0 || cellDate.getDay() === 6;
+    const isToday = stripTime(cellDate) === stripTime(today);
+    headerHtml += `<div class="tl-header-day${isWeekend ? ' is-weekend' : ''}${isToday ? ' is-today' : ''}">
+      ${WEEKDAY_INITIAL[cellDate.getDay()]}<span class="tl-header-day-num">${d}</span>
+    </div>`;
+  }
+  headerEl.innerHTML = headerHtml;
+
+  // Body: one label + one track per assignee row.
+  const bodyEl = document.getElementById('tl-body');
+  bodyEl.style.gridTemplateColumns = columnTemplate;
+
+  if (rows.length === 0) {
+    bodyEl.innerHTML = '';
+    document.getElementById('tl-content').style.display = 'none';
+    document.getElementById('tl-loading').style.display = '';
+    document.getElementById('tl-loading').textContent =
+      hideDone ? 'No open tasks with a due date fall in this month.' : 'No tasks with a due date fall in this month.';
+    return;
+  }
+  document.getElementById('tl-loading').style.display = 'none';
+  document.getElementById('tl-content').style.display = '';
+
+  let bodyHtml = '';
+  rows.forEach(([key, group], rowIndex) => {
+    const laid = layoutTimelineRows(group.tasks, monthStart, monthDayCount);
+    const numLanes = Math.max(1, ...laid.map(l => l.numLanes));
+    const laneHeight = 26;
+    const rowHeight = numLanes * laneHeight + (numLanes - 1) * 4 + 8;
+    const gridRow = rowIndex + 1;
+
+    const initialsHtml = group.initials === '—'
+      ? '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>'
+      : group.initials;
+
+    bodyHtml += `<div class="tl-row-label" style="grid-row:${gridRow};grid-column:1">
+      <div class="avatar-sm" style="background:${group.color}">${initialsHtml}</div>
+      <span class="tl-row-label-name">${group.label}</span>
+    </div>`;
+
+    let dayCellsHtml = '';
+    for (let d = 0; d < monthDayCount; d++) {
+      const cellDate = new Date(year, monthIndex, d + 1);
+      const isWeekend = cellDate.getDay() === 0 || cellDate.getDay() === 6;
+      const isToday = stripTime(cellDate) === stripTime(today);
+      dayCellsHtml += `<div class="tl-daycell${isWeekend ? ' is-weekend' : ''}${isToday ? ' is-today' : ''}"></div>`;
+    }
+
+    let barsHtml = '';
+    for (const item of laid) {
+      const leftPct = (item.start / monthDayCount) * 100;
+      const widthPct = ((item.end - item.start + 1) / monthDayCount) * 100;
+      const top = (item.lane * (laneHeight + 4)) + 4;
+      const color = PRIORITY_BAR_COLOR[item.task.priority] || 'var(--neutral)';
+      const progress = progressPercent(item.task.status);
+      barsHtml += `<div class="tl-bar${item.isBottleneck ? ' is-bottleneck' : ''}"
+        style="left:${leftPct}%;width:${widthPct}%;top:${top}px;height:${laneHeight}px;--tl-bar-color:${color};--tl-progress:${progress}%"
+        onclick="location.href='task-detail.html?id=${item.task.id}'"
+        title="${item.task.ticketNo} — ${item.task.title} (${progress}% via ${item.task.status})">
+        <div class="tl-bar-fill"></div>
+        <div class="tl-bar-label">${item.task.title}</div>
+      </div>`;
+    }
+
+    bodyHtml += `<div class="tl-row-track" style="grid-row:${gridRow};grid-column:2/-1;height:${rowHeight}px">
+      <div class="tl-row-daycells" style="grid-template-columns:repeat(${monthDayCount},1fr)">${dayCellsHtml}</div>
+      ${barsHtml}
+    </div>`;
+  });
+  bodyEl.innerHTML = bodyHtml;
+}
 
 (async function init() {
   let me;
@@ -117,6 +377,18 @@ requireAuth();
   Api.myTasksBadgeCount()
     .then(count => { document.getElementById('nav-mytasks-count').textContent = count; })
     .catch(() => {});
+
+  try {
+    allTasks = await Api.timelineTasks();
+    render();
+  } catch (err) {
+    if (err.code === 'FORBIDDEN' || err.message.includes('logged in')) {
+      logout();
+      return;
+    }
+    document.getElementById('tl-loading').innerHTML =
+      `<span style="color:var(--danger)">Couldn't load the timeline: ${err.message}</span>`;
+  }
 })();
 </script>
 </body>
