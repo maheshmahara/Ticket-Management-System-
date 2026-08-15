@@ -90,11 +90,28 @@ function setupTabs() {
     document.getElementById("tab-requests").style.display = tab === "requests" ? "" : "none";
 
     if (tab === "users" && usersCache.length === 0) loadUsersTab();
-    if (tab === "org") loadOrgTab();
+    if (tab === "org") {
+      loadOrgTab();
+      // org-map.js owns its own data fetch/render — same "self-contained
+      // page module" split calendar.html/timeline.html use rather than
+      // threading state through admin.js. No cache guard, matching
+      // loadOrgTab()'s own behavior: org data is small, reloading on
+      // every tab visit keeps it fresh at negligible cost.
+      renderOrgMindMap();
+    }
     if (tab === "notifications") loadNotificationsTab();
     if (tab === "kpi" && kpiCache === null) loadKpiTab();
     if (tab === "requests" && requestsCache === null) loadRequestsTab();
   });
+}
+
+/** Mind Map / Manage sub-view switch within the Org Structure tab. */
+function switchOrgView(view) {
+  document.querySelectorAll('#tab-org .view-toggle button').forEach((b) => {
+    b.classList.toggle('active', b.dataset.orgView === view);
+  });
+  document.getElementById('org-view-mindmap').style.display = view === 'mindmap' ? '' : 'none';
+  document.getElementById('org-view-manage').style.display = view === 'manage' ? '' : 'none';
 }
 
 function handleApiError(err, fallbackMessage) {

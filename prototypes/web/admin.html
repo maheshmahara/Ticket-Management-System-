@@ -102,31 +102,56 @@
 
       <!-- ORG STRUCTURE TAB -->
       <section id="tab-org" style="display:none">
-        <div class="two-col">
-          <div>
-            <h3 class="admin-section-title">Departments</h3>
-            <div class="panel" id="departments-panel">
-              <div style="padding:24px;text-align:center;color:var(--text-tertiary)">Loading…</div>
-            </div>
-            <form id="add-department-form" style="display:flex;gap:8px;margin-top:12px" onsubmit="return handleAddDepartment(event)">
-              <div class="field" style="flex:1;margin-bottom:0">
-                <input id="new-department-name" type="text" placeholder="New department name" required />
-              </div>
-              <button type="submit" class="btn btn-primary">Add</button>
-            </form>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+          <div class="view-toggle">
+            <button class="active" data-org-view="mindmap" onclick="switchOrgView('mindmap')">Mind Map</button>
+            <button data-org-view="manage" onclick="switchOrgView('manage')">Manage</button>
           </div>
+        </div>
 
-          <div>
-            <h3 class="admin-section-title">Business Units &amp; Branches</h3>
-            <div id="business-units-list">
-              <div style="padding:24px;text-align:center;color:var(--text-tertiary)">Loading…</div>
-            </div>
-            <form id="add-bu-form" style="display:flex;gap:8px;margin-top:12px" onsubmit="return handleAddBusinessUnit(event)">
-              <div class="field" style="flex:1;margin-bottom:0">
-                <input id="new-bu-name" type="text" placeholder="New business unit name" required />
+        <!-- MIND MAP VIEW -->
+        <div id="org-view-mindmap">
+          <div id="org-mindmap-wrap" class="org-map-wrap">
+            <div id="org-mindmap-loading" style="padding:64px 32px;text-align:center;color:var(--text-tertiary)">Loading the org structure…</div>
+            <svg id="org-mindmap-svg" style="display:none"></svg>
+          </div>
+          <div class="cal-legend">
+            <span class="cal-legend-swatch" style="background:var(--accent)"></span> Business Unit
+            <span class="cal-legend-swatch" style="background:var(--neutral)"></span> Branch
+            <span class="cal-legend-swatch" style="background:color-mix(in srgb, var(--accent) 35%, var(--surface))"></span> Department
+            <span class="cal-legend-swatch" style="background:linear-gradient(145deg, #1c4b96, #e2231c)"></span> Member
+            <span style="margin-left:6px">— click to expand. Click a member, or a department's ticket icon, to assign a task.</span>
+          </div>
+        </div>
+
+        <!-- MANAGE VIEW (existing CRUD) -->
+        <div id="org-view-manage" style="display:none">
+          <div class="two-col">
+            <div>
+              <h3 class="admin-section-title">Departments</h3>
+              <div class="panel" id="departments-panel">
+                <div style="padding:24px;text-align:center;color:var(--text-tertiary)">Loading…</div>
               </div>
-              <button type="submit" class="btn btn-primary">Add</button>
-            </form>
+              <form id="add-department-form" style="display:flex;gap:8px;margin-top:12px" onsubmit="return handleAddDepartment(event)">
+                <div class="field" style="flex:1;margin-bottom:0">
+                  <input id="new-department-name" type="text" placeholder="New department name" required />
+                </div>
+                <button type="submit" class="btn btn-primary">Add</button>
+              </form>
+            </div>
+
+            <div>
+              <h3 class="admin-section-title">Business Units &amp; Branches</h3>
+              <div id="business-units-list">
+                <div style="padding:24px;text-align:center;color:var(--text-tertiary)">Loading…</div>
+              </div>
+              <form id="add-bu-form" style="display:flex;gap:8px;margin-top:12px" onsubmit="return handleAddBusinessUnit(event)">
+                <div class="field" style="flex:1;margin-bottom:0">
+                  <input id="new-bu-name" type="text" placeholder="New business unit name" required />
+                </div>
+                <button type="submit" class="btn btn-primary">Add</button>
+              </form>
+            </div>
           </div>
         </div>
       </section>
@@ -311,5 +336,6 @@
 
 <script src="js/api.js"></script>
 <script src="js/admin.js"></script>
+<script src="js/org-map.js"></script>
 </body>
 </html>
