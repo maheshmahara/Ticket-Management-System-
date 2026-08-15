@@ -71,12 +71,50 @@
   <div class="main">
     <header class="topbar">
       <div class="page-title">Calendar</div>
+      <div class="topbar-right">
+        <button class="btn btn-primary" onclick="location.href='create-task.html'">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+          Create Task
+        </button>
+      </div>
     </header>
 
-    <div class="content">
-      <div style="padding:64px 32px;text-align:center;color:var(--text-tertiary)">
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:16px;opacity:0.5"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
-        <div style="font-size:15px">Month and Week views are on the way.</div>
+    <div class="content" style="max-width:none">
+      <div class="cal-toolbar">
+        <div class="cal-nav-group">
+          <button class="btn btn-secondary" onclick="goToday()">Today</button>
+          <button class="cal-chevron-btn" onclick="goPrev()" title="Previous">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <button class="cal-chevron-btn" onclick="goNext()" title="Next">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+          <div class="cal-title" id="calendar-title">&nbsp;</div>
+        </div>
+        <div class="view-toggle">
+          <button class="active" data-view="month" onclick="switchView('month')">Month</button>
+          <button data-view="week" onclick="switchView('week')">Week</button>
+        </div>
+      </div>
+
+      <div id="calendar-loading" style="padding:64px 32px;text-align:center;color:var(--text-tertiary)">Loading your calendar…</div>
+
+      <div id="calendar-month-view" style="display:none">
+        <div class="cal-month-grid" id="cal-month-grid"></div>
+        <div class="cal-legend">
+          <span class="cal-legend-swatch" style="background:var(--surface);border:1px solid var(--border)"></span> No tasks
+          <span class="cal-legend-swatch cal-density-1"></span> 1–2
+          <span class="cal-legend-swatch cal-density-2"></span> 3–4
+          <span class="cal-legend-swatch cal-density-3"></span> 5+
+          <span style="margin-left:6px">— tasks due that day. Click a day to open Week view, or empty space to create a task.</span>
+        </div>
+      </div>
+
+      <div id="calendar-week-view" style="display:none">
+        <div style="padding:64px 32px;text-align:center;color:var(--text-tertiary)">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin-bottom:16px;opacity:0.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+          <div style="font-size:15px">Week view is coming next.</div>
+        </div>
       </div>
     </div>
   </div>
@@ -85,6 +123,139 @@
 <script src="js/api.js"></script>
 <script>
 requireAuth();
+
+const WEEKDAY_LABELS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
+const PRIORITY_DOT_COLOR = { LOW: 'var(--neutral)', MEDIUM: 'var(--warning)', HIGH: '#ff9500', URGENT: 'var(--danger)' };
+
+let currentView = 'month';
+let anchorDate = new Date(); // drives which month/week is currently shown
+let tasksByDate = new Map(); // 'YYYY-MM-DD' -> [task, ...], see groupTasksByDate()
+let currentUser = null;
+
+function dateKey(d) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+/** Monday-start week, matching the existing computeRange('week')
+ * convention already used by the KPI tab in js/admin.js. */
+function startOfWeekMonday(d) {
+  const dayIndex = (d.getDay() + 6) % 7; // 0=Mon .. 6=Sun
+  const start = new Date(d);
+  start.setDate(d.getDate() - dayIndex);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+function densityClass(count) {
+  if (count === 0) return '';
+  if (count <= 2) return 'cal-density-1';
+  if (count <= 4) return 'cal-density-2';
+  return 'cal-density-3';
+}
+
+/** Everything the user is assigned, fetched once and grouped client-side
+ * by calendar date — same "fetch everything, group in JS" approach
+ * board.html already uses for its status columns, rather than
+ * re-querying per month/week navigation. Tasks with no dueAt are
+ * skipped: they have no calendar date to place them on. */
+async function loadAndGroupTasks() {
+  const tasks = await Api.myCalendarTasks(currentUser.id);
+  tasksByDate = new Map();
+  for (const t of tasks) {
+    if (!t.dueAt) continue;
+    const key = dateKey(new Date(t.dueAt));
+    if (!tasksByDate.has(key)) tasksByDate.set(key, []);
+    tasksByDate.get(key).push(t);
+  }
+}
+
+function renderMonthView() {
+  const year = anchorDate.getFullYear();
+  const month = anchorDate.getMonth();
+  document.getElementById('calendar-title').textContent =
+    anchorDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' });
+
+  const gridStart = startOfWeekMonday(new Date(year, month, 1));
+  const todayKey = dateKey(new Date());
+
+  let html = WEEKDAY_LABELS.map((l) => `<div class="cal-weekday-header">${l}</div>`).join('');
+
+  // Fixed 6-week (42-cell) grid rather than the "5 weeks most months, 6
+  // some" a real calendar shows — keeps the page height stable between
+  // months instead of jumping, a reasonable tradeoff for a prototype.
+  for (let i = 0; i < 42; i++) {
+    const cellDate = new Date(gridStart);
+    cellDate.setDate(gridStart.getDate() + i);
+    const key = dateKey(cellDate);
+    const isCurrentMonth = cellDate.getMonth() === month;
+    const isToday = key === todayKey;
+    const dayTasks = tasksByDate.get(key) || [];
+
+    const chips = dayTasks
+      .slice(0, 3)
+      .map(
+        (t) => `
+      <div class="cal-task-chip" onclick="event.stopPropagation(); location.href='task-detail.html?id=${t.id}'" title="${t.title}">
+        <span class="cal-chip-dot" style="background:${PRIORITY_DOT_COLOR[t.priority] || 'var(--neutral)'}"></span>${t.title}
+      </div>`
+      )
+      .join('');
+    const more = dayTasks.length > 3 ? `<div class="cal-more-link">+${dayTasks.length - 3} more</div>` : '';
+
+    html += `
+      <div class="cal-day-cell ${isCurrentMonth ? '' : 'cal-day-dimmed'} ${densityClass(dayTasks.length)}" onclick="handleDayCellClick('${key}')">
+        <div class="cal-day-number ${isToday ? 'is-today' : ''}" onclick="event.stopPropagation(); jumpToWeek('${key}')">${cellDate.getDate()}</div>
+        <div class="cal-day-chips">${chips}${more}</div>
+      </div>`;
+  }
+
+  document.getElementById('cal-month-grid').innerHTML = html;
+}
+
+/** Empty space in a day cell -> Create Task, due date pre-filled to
+ * 9:00 AM that day (create-task.html reads this via ?due=). */
+function handleDayCellClick(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  const due = new Date(y, m - 1, d, 9, 0, 0);
+  location.href = `create-task.html?due=${encodeURIComponent(due.toISOString())}`;
+}
+
+function jumpToWeek(key) {
+  const [y, m, d] = key.split('-').map(Number);
+  anchorDate = new Date(y, m - 1, d);
+  switchView('week');
+}
+
+function switchView(view) {
+  currentView = view;
+  document.querySelectorAll('.view-toggle button').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
+  document.getElementById('calendar-month-view').style.display = view === 'month' ? '' : 'none';
+  document.getElementById('calendar-week-view').style.display = view === 'week' ? '' : 'none';
+  render();
+}
+
+function render() {
+  if (currentView === 'month') renderMonthView();
+  // Week view rendering lands in the next phase — its container already
+  // shows a "coming next" placeholder (see the static markup above).
+}
+
+function goToday() {
+  anchorDate = new Date();
+  render();
+}
+
+function goPrev() {
+  if (currentView === 'month') anchorDate = new Date(anchorDate.getFullYear(), anchorDate.getMonth() - 1, 1);
+  else anchorDate.setDate(anchorDate.getDate() - 7);
+  render();
+}
+
+function goNext() {
+  if (currentView === 'month') anchorDate = new Date(anchorDate.getFullYear(), anchorDate.getMonth() + 1, 1);
+  else anchorDate.setDate(anchorDate.getDate() + 7);
+  render();
+}
 
 (async function init() {
   let me;
@@ -102,6 +273,7 @@ requireAuth();
     location.href = 'my-profile.html';
     return;
   }
+  currentUser = me;
 
   document.getElementById('sidebar-name').textContent = me.fullName;
   document.getElementById('sidebar-role').textContent = me.department ? me.department.name : me.role;
@@ -111,6 +283,20 @@ requireAuth();
   Api.myTasksBadgeCount()
     .then(count => { document.getElementById('nav-mytasks-count').textContent = count; })
     .catch(() => {});
+
+  try {
+    await loadAndGroupTasks();
+    document.getElementById('calendar-loading').style.display = 'none';
+    document.getElementById('calendar-month-view').style.display = '';
+    render();
+  } catch (err) {
+    if (err.code === 'FORBIDDEN' || err.message.includes('logged in')) {
+      logout();
+      return;
+    }
+    document.getElementById('calendar-loading').innerHTML =
+      `<span style="color:var(--danger)">Couldn't load your calendar: ${err.message}</span>`;
+  }
 })();
 </script>
 </body>
