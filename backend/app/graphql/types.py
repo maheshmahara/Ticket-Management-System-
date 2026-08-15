@@ -125,6 +125,7 @@ class Task:
     assignee: Optional[User]
     reporter: User
     due_at: Optional[datetime]
+    start_date: Optional[datetime]
     duration_minutes: Optional[int]
     is_overdue: bool
     completed_at: Optional[datetime]
@@ -270,6 +271,7 @@ class CreateTaskInput:
     priority: TaskPriority = TaskPriority.MEDIUM
     status: TaskStatus = TaskStatus.PENDING
     due_at: Optional[datetime] = None
+    start_date: Optional[datetime] = None
     duration_minutes: int = 30
     assignee_id: Optional[strawberry.ID] = None
 
@@ -282,6 +284,7 @@ class UpdateTaskInput:
     priority: Optional[TaskPriority] = None
     status: Optional[TaskStatus] = None
     due_at: Optional[datetime] = None
+    start_date: Optional[datetime] = None
     duration_minutes: Optional[int] = None
     assignee_id: Optional[strawberry.ID] = None
 

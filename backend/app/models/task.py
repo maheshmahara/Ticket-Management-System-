@@ -76,6 +76,15 @@ class Task(Base):
     )
 
     due_at: Mapped[datetime | None] = mapped_column(nullable=True)
+    # When work on the task actually begins — distinct from due_at (when
+    # it must be finished) and from created_at (when the ticket was
+    # filed, which can be well before or after work starts). Powers the
+    # left edge of a task's bar on timeline.html's Gantt view. No
+    # default, unlike duration_minutes: most existing tasks legitimately
+    # have no start date set, and the timeline falls back to created_at
+    # client-side rather than backfilling this to a guessed value. See
+    # migrations/versions/0004_task_start_date.py.
+    start_date: Mapped[datetime | None] = mapped_column(nullable=True)
     # How long the task is expected to take, in minutes — sizes its block
     # on calendar.html's hourly Week grid so time gaps between tasks are
     # real empty space, not guesswork. Defaults to 30 both here (for rows
