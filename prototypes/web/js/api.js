@@ -248,6 +248,30 @@ const Api = {
   },
 
   /**
+   * Every one of the given user's tasks that have a due date — powers
+   * calendar.html's Month/Week grids. Fetched once per page load and
+   * grouped by date client-side (same "fetch everything, group in JS"
+   * approach board.html already uses for its status columns) rather
+   * than re-querying per month/week navigation. Tasks with no dueAt are
+   * still returned here (the filter doesn't exclude them) since a task
+   * genuinely has no calendar date to place it on — the caller is
+   * expected to skip those when grouping, not this method.
+   */
+  async myCalendarTasks(userId) {
+    const data = await gql(
+      `query MyCalendarTasks($assigneeId: ID) {
+        tasks(filter: { assigneeId: $assigneeId }, page: { first: 300 }) {
+          edges {
+            node { id ticketNo title status priority dueAt durationMinutes }
+          }
+        }
+      }`,
+      { assigneeId: userId }
+    );
+    return data.tasks.edges.map(e => e.node);
+  },
+
+  /**
    * Powers the board's inline assignee picker: every candidate assignee
    * plus their current platform-wide open-ticket count, so you can see
    * who's already busy before reassigning. `departmentId` only narrows
