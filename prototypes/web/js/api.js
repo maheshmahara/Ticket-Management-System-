@@ -62,14 +62,26 @@ async function gql(query, variables) {
   const token = getToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(API_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify({ query, variables }),
-  });
+  // fetch() itself rejects (not just a non-2xx response) when the API is
+  // unreachable — no server, DNS failure, CORS block, offline. Left
+  // unhandled, that rejection is the browser's own generic wording (e.g.
+  // Safari's bare "Load failed"), which surfaces to the user completely
+  // unfiltered. Give both failure modes a clear, branded message instead.
+  let res;
+  try {
+    res = await fetch(API_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ query, variables }),
+    });
+  } catch (networkErr) {
+    console.error("GraphQL request failed:", networkErr);
+    throw new Error("Can't reach the HNBG server right now. Check your connection and try again.");
+  }
 
   if (!res.ok) {
-    throw new Error(`Network error contacting the API (HTTP ${res.status}). Is the backend running?`);
+    console.error(`GraphQL HTTP ${res.status}`);
+    throw new Error("The HNBG server had a problem handling that request. Please try again in a moment.");
   }
 
   const payload = await res.json();
