@@ -43,8 +43,7 @@ let kpiRangeMode = "week";
 
   document.getElementById("sidebar-name").textContent = me.fullName;
   document.getElementById("sidebar-role").textContent = me.department ? me.department.name : me.role;
-  document.getElementById("sidebar-avatar").textContent = me.initials;
-  document.getElementById("sidebar-avatar").style.background = me.avatarColor;
+  setSidebarAvatar(me);
 
   Api.myTasksBadgeCount()
     .then((count) => { document.getElementById("nav-mytasks-count").textContent = count; })
