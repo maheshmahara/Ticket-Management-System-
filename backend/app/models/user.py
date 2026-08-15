@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import Boolean, Enum, ForeignKey, String
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, String, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
@@ -72,6 +72,31 @@ class User(Base):
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     created_at: Mapped[datetime] = mapped_column(server_default=func.now())
+
+    # Client-resized/compressed avatar photo (see my-profile.html's canvas
+    # resize step) — raw base64 payload only, no "data:image/...;base64,"
+    # prefix; the frontend adds that prefix when rendering an <img src>.
+    photo_base64: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Set once, the first time both department_id and phone_number are
+    # present (see update_my_profile in app/graphql/mutations.py, and the
+    # equivalent backfill in app/services/org_service.py's admin-facing
+    # create_user/update_user) — powers the one-time "complete your
+    # profile" redirect gate. Never re-cleared once set, even if
+    # department/phone are later blanked out again.
+    profile_completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+    # Self-requested permission role, pending admin approval. Same
+    # values_callable requirement as `role` above (identical Postgres enum
+    # type — see that column's comment). Does NOT change what's enforced —
+    # only `role` is read by app/graphql/permissions.py. Cleared to None
+    # when an admin approves or denies via respondToRoleRequest.
+    requested_role: Mapped[Role | None] = mapped_column(
+        Enum(Role, name="user_role", values_callable=lambda obj: [e.value for e in obj]),
+        nullable=True,
+    )
 
     assigned_tasks: Mapped[list["Task"]] = relationship(  # noqa: F821
         back_populates="assignee", foreign_keys="Task.assignee_id"

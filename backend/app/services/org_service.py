@@ -6,6 +6,7 @@ delegate, map to GraphQL types).
 """
 
 import uuid
+from datetime import datetime, timezone
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
@@ -133,6 +134,12 @@ async def create_user(db: AsyncSession, *, input) -> User:
         job_title=input.job_title,
         phone_number=input.phone_number,
     )
+    # An admin who fills in both department and phone at creation time
+    # has already done what the self-service onboarding gate would have
+    # asked for — same criteria as update_my_profile in mutations.py, so
+    # a fully-admin-provisioned new hire never hits that gate needlessly.
+    if user.department_id is not None and user.phone_number:
+        user.profile_completed_at = datetime.now(timezone.utc)
     db.add(user)
     try:
         await db.commit()
@@ -175,6 +182,12 @@ async def update_user(db: AsyncSession, *, user_id: uuid.UUID, input) -> User:
         if input.notify_sms and not user.phone_number:
             raise app_error("VALIDATION_ERROR", "This user needs a phone number on file before SMS alerts can be enabled.")
         user.notify_sms = input.notify_sms
+
+    # Same backfill as create_user above and update_my_profile in
+    # mutations.py — an admin filling in the last missing field for
+    # someone shouldn't leave them facing the onboarding gate needlessly.
+    if user.profile_completed_at is None and user.department_id is not None and user.phone_number:
+        user.profile_completed_at = datetime.now(timezone.utc)
 
     await db.commit()
     return await get_user_by_id(db, user_id)
