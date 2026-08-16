@@ -96,20 +96,6 @@
             <svg class="aform-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
           </div>
 
-          <div class="aform-field is-static">
-            <select id="duration">
-              <option value="15">15 minutes</option>
-              <option value="30" selected>30 minutes</option>
-              <option value="45">45 minutes</option>
-              <option value="60">1 hour</option>
-              <option value="90">1.5 hours</option>
-              <option value="120">2 hours</option>
-              <option value="180">3 hours</option>
-            </select>
-            <label for="duration">Duration</label>
-            <svg class="aform-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
-          </div>
-
           <div class="aform-assignee">
             <div class="aform-assignee-avatar" id="assignee-avatar" style="background:var(--neutral)">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/></svg>
@@ -176,7 +162,6 @@ requireAuth();
 // is already doing real work (shows the selected person's avatar).
 convertSelectToAppleDropdown(document.getElementById('department'));
 convertSelectToAppleDropdown(document.getElementById('branch'));
-convertSelectToAppleDropdown(document.getElementById('duration'));
 convertSelectToAppleDropdown(document.getElementById('assignee'), { triggerEl: document.querySelector('.aform-assignee') });
 
 let selectedPriority = 'low';
@@ -375,7 +360,6 @@ async function handleCreateTaskSubmit(e) {
   const description = document.getElementById('desc').value.trim();
   const startDateRaw = document.getElementById('start-date').value;
   const dueRaw = document.getElementById('due').value;
-  const durationMinutes = parseInt(document.getElementById('duration').value, 10);
   const submitBtn = e.target.querySelector('button[type="submit"]');
 
   submitBtn.disabled = true;
@@ -396,7 +380,10 @@ async function handleCreateTaskSubmit(e) {
       // to prefillDueFromQueryParam() above for the reverse conversion.
       startDate: startDateRaw ? new Date(`${startDateRaw}T00:00:00`).toISOString() : null,
       dueAt: dueRaw ? new Date(dueRaw).toISOString() : null,
-      durationMinutes,
+      // durationMinutes intentionally omitted — no picker for it in this
+      // form anymore; CreateTaskInput's own schema default (30) applies.
+      // Calendar's Week view still uses it, just always at the default
+      // for tasks created here (still editable later if that changes).
       assigneeId: assigneeId || null,
     });
   } catch (err) {
