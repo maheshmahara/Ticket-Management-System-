@@ -20,6 +20,7 @@ from app.models.comment import Comment as CommentModel
 from app.models.department import Department as DepartmentModel
 from app.models.notification_log import NotificationLog as NotificationLogModel
 from app.models.task import Task as TaskModel
+from app.models.task_attachment import TaskAttachment as TaskAttachmentModel
 from app.models.user import User as UserModel
 
 
@@ -90,6 +91,17 @@ def to_comment(comment: CommentModel) -> gql.Comment:
     )
 
 
+def to_task_attachment(attachment: TaskAttachmentModel) -> gql.TaskAttachment:
+    return gql.TaskAttachment(
+        id=strawberry.ID(str(attachment.id)),
+        file_name=attachment.file_name,
+        content_type=attachment.content_type,
+        file_size_bytes=attachment.file_size_bytes,
+        uploaded_by=to_user(attachment.uploaded_by),
+        created_at=attachment.created_at,
+    )
+
+
 def to_task(task: TaskModel) -> gql.Task:
     return gql.Task(
         id=strawberry.ID(str(task.id)),
@@ -99,6 +111,7 @@ def to_task(task: TaskModel) -> gql.Task:
         status=gql.TaskStatus(task.status.value),
         priority=gql.TaskPriority(task.priority.value),
         department=to_department(task.department),
+        branch=to_branch(task.branch) if task.branch else None,
         assignee=to_user(task.assignee) if task.assignee else None,
         reporter=to_user(task.reporter),
         due_at=task.due_at,
@@ -109,6 +122,7 @@ def to_task(task: TaskModel) -> gql.Task:
         created_at=task.created_at,
         updated_at=task.updated_at,
         comments=[to_comment(c) for c in task.comments],
+        attachments=[to_task_attachment(a) for a in task.attachments],
     )
 
 

@@ -41,7 +41,7 @@ from app.models.task import TaskPriority as TaskPriorityModel
 from app.models.task import TaskStatus
 from app.models.user import Role
 from app.models.user import User as UserModel
-from app.services import analytics_service, org_service
+from app.services import analytics_service, attachment_service, org_service
 from app.services.task_service import TASK_EAGER_LOAD
 from app.services.user_service import USER_EAGER_LOAD, list_users
 
@@ -277,6 +277,20 @@ class Query:
         if not can_view_task(info.context.user, task_row):
             raise app_error("FORBIDDEN", "You don't have access to this task.")
         return to_task(task_row)
+
+    @strawberry.field(permission_classes=[IsAuthenticated])
+    async def task_attachment_content(self, info: Info, id: strawberry.ID) -> str:
+        """The raw base64 payload for one attachment — deliberately split
+        out from Task.attachments (which only carries metadata) so
+        opening a task's attachment list never pulls every file's full
+        bytes over the wire, only the one being downloaded."""
+        db = info.context.db
+        attachment = await attachment_service.get_task_attachment(db, uuid.UUID(str(id)))
+        if attachment is None:
+            raise app_error("NOT_FOUND", "Attachment not found.")
+        if not can_view_task(info.context.user, attachment.task):
+            raise app_error("FORBIDDEN", "You don't have access to this attachment.")
+        return attachment.file_base64
 
     @strawberry.field(permission_classes=[IsAuthenticated])
     async def tasks(

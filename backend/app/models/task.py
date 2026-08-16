@@ -63,6 +63,16 @@ class Task(Base):
     )
     department: Mapped["Department"] = relationship(back_populates="tasks")  # noqa: F821
 
+    # Purely descriptive, unlike department_id — does NOT participate in
+    # RBAC scoping (app/graphql/queries.py's `tasks` resolver still scopes
+    # by department only). Mirrors User.branch_id exactly; see that
+    # column's comment in app/models/user.py. Nullable, no default: most
+    # tasks legitimately have no branch set, same reasoning as start_date.
+    branch_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("branches.id"), nullable=True
+    )
+    branch: Mapped["Branch | None"] = relationship()  # noqa: F821
+
     assignee_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True
     )
@@ -97,6 +107,9 @@ class Task(Base):
     updated_at: Mapped[datetime] = mapped_column(server_default=func.now(), onupdate=func.now())
 
     comments: Mapped[list["Comment"]] = relationship(  # noqa: F821
+        back_populates="task", cascade="all, delete-orphan"
+    )
+    attachments: Mapped[list["TaskAttachment"]] = relationship(  # noqa: F821
         back_populates="task", cascade="all, delete-orphan"
     )
 

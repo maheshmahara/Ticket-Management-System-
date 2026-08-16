@@ -2434,3 +2434,100 @@ input:-webkit-autofill:active {
   font-size: 10px;
   font-weight: 500;
 }
+
+/* Apple-style dropdown (js/api.js's convertSelectToAppleDropdown()) —
+   replaces a native <select>'s unstyleable open-state popup. The
+   value-display element takes over the exact spot/typography the
+   <select> itself used to render in, in each of the two contexts it
+   appears in on create-task.html; the panel is appended to <body> and
+   positioned absolutely, same reasoning as the other floating panels
+   this session (search results, notifications) — sidesteps any
+   ancestor overflow/stacking-context clipping. */
+.apple-dropdown-value {
+  font-size: 15px;
+  color: var(--text-primary);
+  cursor: pointer;
+  user-select: none;
+  min-height: 1.3em;
+}
+
+.aform-field .apple-dropdown-value { padding: 8px 0 4px; }
+.aform-assignee-body .apple-dropdown-value { padding: 4px 0 2px; }
+
+.apple-dropdown-panel {
+  position: absolute;
+  z-index: 1000;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md);
+  padding: 6px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.apple-dropdown-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: 13.5px;
+  color: var(--text-primary);
+}
+
+.apple-dropdown-option:hover { background: var(--fill-1); }
+.apple-dropdown-option.is-selected { font-weight: 600; }
+
+.apple-dropdown-check {
+  width: 16px;
+  flex-shrink: 0;
+  color: var(--accent);
+  font-weight: 700;
+  text-align: center;
+}
+
+/* Staged (pre-upload) and already-uploaded attachment chips — shared
+   between create-task.html (staging only) and task-detail.html
+   (staging + already-uploaded, with download/delete). */
+.attachment-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  background: var(--fill-1);
+  font-size: 13px;
+  color: var(--text-primary);
+}
+
+.attachment-chip-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-chip-size {
+  color: var(--text-tertiary);
+  font-size: 11.5px;
+  flex-shrink: 0;
+}
+
+.attachment-chip-remove {
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: none;
+  background: transparent;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.attachment-chip-remove:hover { background: var(--fill-2); color: var(--danger); }

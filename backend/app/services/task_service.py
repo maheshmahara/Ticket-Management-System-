@@ -21,6 +21,7 @@ from app.models.branch import Branch
 from app.models.comment import Comment
 from app.models.notification_log import NotificationTrigger
 from app.models.task import Task, TaskPriority, TaskStatus, ticket_number_seq
+from app.models.task_attachment import TaskAttachment
 from app.models.user import User
 from app.services.notifications import enqueue_assignment_notification, enqueue_if_needed
 from app.services.user_service import USER_EAGER_LOAD  # noqa: F401 (re-exported for callers building User queries alongside tasks)
@@ -36,9 +37,11 @@ _USER_NESTED_LOAD = (selectinload(User.department), selectinload(User.branch).se
 
 TASK_EAGER_LOAD = (
     selectinload(Task.department),
+    selectinload(Task.branch).selectinload(Branch.business_unit),
     selectinload(Task.assignee).options(*_USER_NESTED_LOAD),
     selectinload(Task.reporter).options(*_USER_NESTED_LOAD),
     selectinload(Task.comments).selectinload(Comment.author).options(*_USER_NESTED_LOAD),
+    selectinload(Task.attachments).selectinload(TaskAttachment.uploaded_by).options(*_USER_NESTED_LOAD),
 )
 
 # Priorities that make a task notification-worthy. should_notify() in
@@ -70,6 +73,7 @@ async def create_task(db: AsyncSession, *, actor: User, input) -> Task:
         status=TaskStatus(input.status.value),
         priority=TaskPriority(input.priority.value),
         department_id=uuid.UUID(str(input.department_id)),
+        branch_id=uuid.UUID(str(input.branch_id)) if input.branch_id else None,
         assignee_id=uuid.UUID(str(input.assignee_id)) if input.assignee_id else None,
         reporter_id=actor.id,
         due_at=input.due_at,
@@ -120,6 +124,8 @@ async def update_task(db: AsyncSession, *, actor: User, task: Task, input) -> Ta
         task.description = input.description
     if input.department_id is not None:
         task.department_id = uuid.UUID(str(input.department_id))
+    if input.branch_id is not None:
+        task.branch_id = uuid.UUID(str(input.branch_id))
     if input.priority is not None:
         task.priority = TaskPriority(input.priority.value)
     if input.status is not None:
@@ -136,6 +142,28 @@ async def update_task(db: AsyncSession, *, actor: User, task: Task, input) -> Ta
         task.assignee_id = new_assignee_id
 
     await db.commit()
+    # AsyncSessionLocal is configured with expire_on_commit=False (see
+    # app/core/database.py — avoids MissingGreenlet pitfalls elsewhere),
+    # so `task`'s already-loaded relationship attributes (department,
+    # branch, assignee, ...) are NOT automatically invalidated by the
+    # commit above. Without expiring them first, get_task()'s fresh
+    # SELECT below finds this same object already in the session's
+    # identity map with those relationships "already loaded" and skips
+    # re-querying them — the mutation would return the *old*
+    # department/branch/assignee even though the FK column itself was
+    # written correctly (confirmed via a separate query: the DB row is
+    # always right, only this in-memory response was stale). Found
+    # while adding branch_id, but affects every FK field here, not just
+    # the new one.
+    #
+    # Naming the relationship attributes explicitly matters:
+    # db.expire(task) with no attribute_names expires *every* attribute
+    # including plain columns like `id` — and `task.id` right below is
+    # a synchronous access, so an expired `id` tries to lazy-reload
+    # outside the awaited context and raises MissingGreenlet. Only the
+    # relationships actually need invalidating; the FK scalar columns
+    # were already updated in-memory above and don't need refreshing.
+    db.expire(task, ["department", "branch", "assignee", "reporter", "comments", "attachments"])
     task = await get_task(db, task.id)
 
     now_notifiable = task.priority in NOTIFIABLE_PRIORITIES

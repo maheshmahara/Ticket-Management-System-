@@ -131,6 +131,81 @@ function renderComment(c) {
   `;
 }
 
+function formatFileSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function renderAttachment(a) {
+  return `
+    <div class="attachment-chip">
+      <span class="attachment-chip-name">${a.fileName}</span>
+      <span class="attachment-chip-size">${formatFileSize(a.fileSizeBytes)} · ${a.uploadedBy.fullName} · ${timeAgo(a.createdAt)}</span>
+      <button type="button" class="icon-action-btn" title="Download" onclick="handleDownloadAttachment('${a.id}', '${a.fileName.replace(/'/g, "\\'")}', '${a.contentType}')">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+      </button>
+      <button type="button" class="attachment-chip-remove" title="Delete" onclick="handleDeleteAttachment('${a.id}')">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+  `;
+}
+
+/** Unlike create-task.html's staging (no task exists yet), Task Detail
+ * already has a real task id — each picked file uploads immediately,
+ * one at a time, then the task is refetched so the new attachment(s)
+ * show up via the normal render path. */
+async function handleDetailAttachmentsSelected(e) {
+  const files = [...e.target.files];
+  e.target.value = '';
+  const failed = [];
+  for (const file of files) {
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Could not read that file.'));
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.readAsDataURL(file);
+      });
+      await Api.addTaskAttachment(taskId, file.name, file.type || 'application/octet-stream', base64);
+    } catch (err) {
+      failed.push(file.name);
+    }
+  }
+  if (failed.length > 0) alert(`Couldn't attach: ${failed.join(', ')}`);
+  await loadTask();
+}
+
+async function handleDownloadAttachment(id, fileName, contentType) {
+  try {
+    const base64 = await Api.taskAttachmentContent(id);
+    const link = document.createElement('a');
+    link.href = `data:${contentType};base64,${base64}`;
+    link.download = fileName;
+    link.click();
+  } catch (err) {
+    if (err.code === 'FORBIDDEN' || err.message.includes('logged in')) {
+      logout();
+      return;
+    }
+    alert(`Couldn't download: ${err.message}`);
+  }
+}
+
+async function handleDeleteAttachment(id) {
+  try {
+    await Api.deleteTaskAttachment(id);
+    await loadTask();
+  } catch (err) {
+    if (err.code === 'FORBIDDEN' || err.message.includes('logged in')) {
+      logout();
+      return;
+    }
+    alert(`Couldn't delete: ${err.message}`);
+  }
+}
+
 async function populateAssigneeSelect(task) {
   const select = document.getElementById('assignee-select');
   if (!select) return;
@@ -198,11 +273,23 @@ function renderTask(task) {
       <div class="detail-main">
         <span class="status-chip ${statusClass}" style="margin-bottom:14px;display:inline-flex">● ${statusLabel}</span>
         <h1 style="font-size:22px;font-weight:700;letter-spacing:-0.01em;margin:0 0 8px">${task.title}</h1>
-        <div style="color:var(--text-tertiary);font-size:13px;margin-bottom:24px">#${task.ticketNo} · ${task.department.name} · Opened ${opened}</div>
+        <div style="color:var(--text-tertiary);font-size:13px;margin-bottom:24px">#${task.ticketNo} · ${task.department.name}${task.branch ? ' · ' + task.branch.name : ''} · Opened ${opened}</div>
 
         <p style="color:var(--text-secondary);line-height:1.6;font-size:14.5px">
           ${task.description || '<span style="color:var(--text-tertiary)">No description provided.</span>'}
         </p>
+
+        <div style="margin-top:28px">
+          <div class="side-label" style="margin-bottom:10px">Attachments</div>
+          <div id="attachment-list" style="display:flex;flex-direction:column;gap:6px">
+            ${task.attachments.length ? task.attachments.map(renderAttachment).join('') : '<div style="color:var(--text-tertiary);font-size:13px;padding:4px 0 10px">No files attached yet.</div>'}
+          </div>
+          <button type="button" class="btn btn-secondary" style="margin-top:10px" onclick="document.getElementById('detail-attachment-input').click()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            Attach file
+          </button>
+          <input type="file" id="detail-attachment-input" multiple style="display:none" onchange="handleDetailAttachmentsSelected(event)" />
+        </div>
 
         <div style="margin-top:28px">
           <div class="side-label" style="margin-bottom:10px">Activity</div>

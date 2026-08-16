@@ -558,14 +558,53 @@ const Api = {
         task(id: $id) {
           id ticketNo title description status priority dueAt isOverdue createdAt
           department { name }
+          branch { name businessUnit { name } }
           assignee { id fullName initials avatarColor }
           reporter { id fullName initials avatarColor }
           comments { id body createdAt author { fullName initials avatarColor } }
+          attachments {
+            id fileName contentType fileSizeBytes createdAt
+            uploadedBy { fullName initials avatarColor }
+          }
         }
       }`,
       { id }
     );
     return data.task;
+  },
+
+  /**
+   * Stages a file on Create Task / Task Detail. fileBase64 is the raw
+   * payload (no data-URI prefix) — same convention as photoBase64.
+   * Deliberately no client-side resizing here (unlike
+   * resizeImageToBase64() in my-profile.html): attachments aren't
+   * necessarily images. See attachment_service.MAX_ATTACHMENT_BASE64_LENGTH
+   * on the backend for the size cap this has to stay under.
+   */
+  async addTaskAttachment(taskId, fileName, contentType, fileBase64) {
+    const data = await gql(
+      `mutation($taskId: ID!, $fileName: String!, $contentType: String!, $fileBase64: String!) {
+        addTaskAttachment(taskId: $taskId, fileName: $fileName, contentType: $contentType, fileBase64: $fileBase64) {
+          id fileName contentType fileSizeBytes createdAt
+          uploadedBy { fullName initials avatarColor }
+        }
+      }`,
+      { taskId, fileName, contentType, fileBase64 }
+    );
+    return data.addTaskAttachment;
+  },
+
+  /** Fetched on demand only when Download is actually clicked — see
+   * Notification's docstring for the same "metadata vs. full payload"
+   * split applied to attachments (Task.attachments never includes this). */
+  async taskAttachmentContent(id) {
+    const data = await gql(`query($id: ID!) { taskAttachmentContent(id: $id) }`, { id });
+    return data.taskAttachmentContent;
+  },
+
+  async deleteTaskAttachment(id) {
+    const data = await gql(`mutation($id: ID!) { deleteTaskAttachment(id: $id) }`, { id });
+    return data.deleteTaskAttachment;
   },
 
   async createTask(input) {
@@ -893,3 +932,115 @@ function formatDuration(seconds) {
 // without the relevant markup (see the guards inside both).
 initTopbarSearch();
 initNotificationBell();
+
+/**
+ * Replaces a native <select>'s open-state popup — the browser's own
+ * unstyleable system list — with an Apple-style floating panel
+ * (checkmark on the current selection, rounded panel, hover highlight),
+ * while leaving the <select> itself in the DOM as the real data model.
+ * Every existing `.value` read and `onchange`/`change` handler
+ * elsewhere in a page keeps working completely unchanged — this only
+ * replaces how the option list looks and opens, not how the value is
+ * stored or reported. See create-task.html for the calling pattern.
+ *
+ * @param {HTMLSelectElement} selectEl
+ * @param {Object} [opts]
+ * @param {HTMLElement} [opts.triggerEl] - click target that opens the
+ *   panel; defaults to the inserted value-display element. Pass this
+ *   when a larger existing element (e.g. an avatar row) should be the
+ *   whole click target instead of a bare text span.
+ */
+function convertSelectToAppleDropdown(selectEl, opts) {
+  opts = opts || {};
+  selectEl.style.display = "none";
+
+  const valueEl = document.createElement("div");
+  valueEl.className = "apple-dropdown-value";
+  selectEl.insertAdjacentElement("afterend", valueEl);
+
+  const triggerEl = opts.triggerEl || valueEl;
+
+  const panel = document.createElement("div");
+  panel.className = "apple-dropdown-panel";
+  panel.style.display = "none";
+  document.body.appendChild(panel);
+
+  function syncValueText() {
+    const opt = selectEl.selectedOptions[0];
+    valueEl.textContent = opt ? opt.textContent : "";
+  }
+
+  function renderPanel() {
+    panel.innerHTML = [...selectEl.options]
+      .map(
+        (o) => `
+      <div class="apple-dropdown-option${o.value === selectEl.value ? " is-selected" : ""}" data-value="${o.value}">
+        <span class="apple-dropdown-check">${o.value === selectEl.value ? "✓" : ""}</span>
+        <span class="apple-dropdown-option-label">${o.textContent}</span>
+      </div>`
+      )
+      .join("");
+  }
+
+  function position() {
+    const r = triggerEl.getBoundingClientRect();
+    panel.style.left = `${r.left + window.scrollX}px`;
+    panel.style.top = `${r.bottom + window.scrollY + 6}px`;
+    panel.style.width = `${Math.max(r.width, 200)}px`;
+  }
+
+  function openPanel() {
+    document.querySelectorAll(".apple-dropdown-panel").forEach((p) => {
+      if (p !== panel) p.style.display = "none";
+    });
+    renderPanel();
+    position();
+    panel.style.display = "";
+  }
+
+  function closePanel() {
+    panel.style.display = "none";
+  }
+
+  triggerEl.style.cursor = "pointer";
+  triggerEl.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (panel.style.display === "none") openPanel();
+    else closePanel();
+  });
+
+  panel.addEventListener("click", (e) => {
+    const optEl = e.target.closest(".apple-dropdown-option");
+    if (!optEl) return;
+    selectEl.value = optEl.dataset.value;
+    // Real `change` event, not a custom one — every existing
+    // onchange="..." handler on these selects (e.g. create-task.html's
+    // updateAssigneeAvatar) keeps firing exactly as it did with the
+    // native popup.
+    selectEl.dispatchEvent(new Event("change", { bubbles: true }));
+    syncValueText();
+    closePanel();
+  });
+
+  document.addEventListener("click", closePanel);
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closePanel();
+  });
+  window.addEventListener(
+    "scroll",
+    () => {
+      if (panel.style.display !== "none") position();
+    },
+    true
+  );
+
+  syncValueText();
+
+  // Code elsewhere (e.g. create-task.html setting deptSelect.value =
+  // me.department.id, or the ?departmentId= prefill) sets `.value`
+  // directly rather than clicking a panel option — a plain property
+  // assignment doesn't fire `change` and can't be observed, so those
+  // call sites call this hook manually afterward to keep the visible
+  // text in sync. No-op to call after every such assignment either way.
+  selectEl.appleDropdownSync = syncValueText;
+}
