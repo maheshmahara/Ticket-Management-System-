@@ -3,6 +3,15 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script>
+  // Applied before first paint to avoid a flash of the wrong theme --
+  // js/api.js (loaded at the end of <body>) is far too late for this.
+  // See applyTheme()/setThemeChoice() there for the picker itself.
+  (function () {
+    var t = localStorage.getItem("hnbg_theme");
+    if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+  })();
+</script>
 <title>Timeline — HNBG</title>
 <link rel="stylesheet" href="styles.css" />
 </head>
@@ -60,6 +69,17 @@
           <div class="user-role" id="sidebar-role">—</div>
         </div>
       </a>
+      <div class="theme-toggle" id="theme-toggle" role="group" aria-label="Theme">
+        <button data-theme-choice="light" onclick="setThemeChoice('light')" title="Light">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        </button>
+        <button data-theme-choice="dark" onclick="setThemeChoice('dark')" title="Dark">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>
+        </button>
+        <button data-theme-choice="system" onclick="setThemeChoice('system')" title="System">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        </button>
+      </div>
       <button class="sidebar-signout-btn" onclick="logout()" title="Sign out">
         <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
         Sign out

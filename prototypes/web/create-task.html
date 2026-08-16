@@ -3,6 +3,15 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<script>
+  // Applied before first paint to avoid a flash of the wrong theme --
+  // js/api.js (loaded at the end of <body>) is far too late for this.
+  // See applyTheme()/setThemeChoice() there for the picker itself.
+  (function () {
+    var t = localStorage.getItem("hnbg_theme");
+    if (t === "light" || t === "dark") document.documentElement.dataset.theme = t;
+  })();
+</script>
 <title>Create Task — HNBG</title>
 <link rel="stylesheet" href="styles.css" />
 </head>
