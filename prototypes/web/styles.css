@@ -107,6 +107,94 @@
   }
 }
 
+/* Explicit Light/Dark override (Theme picker, sidebar-footer's
+   #theme-toggle) — wins over the OS-driven prefers-color-scheme media
+   query above in *both* directions, because an attribute selector on
+   :root (specificity 0,0,2,0) beats a plain :root selector
+   (0,0,1,0) regardless of source order. "System" sets no data-theme
+   attribute at all, so the media query above keeps driving it exactly
+   as it always has — these two blocks are the only thing that changes
+   for the other two choices. See js/api.js's applyTheme()/setThemeChoice()
+   for how the attribute gets set, and each page's inline <head> script
+   for why it's set before first paint (avoids a flash of the wrong
+   theme on load — the API JS bundle loads at the end of body, far too
+   late to prevent that flash on its own). */
+:root[data-theme="dark"] {
+  --bg: #000000;
+  --surface: #1c1c1e;
+  --surface-alt: #232326;
+  --border: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.16);
+
+  --text-primary: #f5f5f7;
+  --text-secondary: #98989d;
+  --text-tertiary: #6e6e73;
+
+  --fill-1: rgba(120, 120, 128, 0.18);
+  --fill-2: rgba(120, 120, 128, 0.24);
+  --fill-3: rgba(120, 120, 128, 0.32);
+  --fill-4: rgba(120, 120, 128, 0.4);
+
+  --accent: #4c8bdf;
+  --accent-hover: #6ea3e8;
+  --accent-soft: rgba(76, 139, 223, 0.18);
+
+  --success: #32d74b;
+  --success-soft: rgba(50, 215, 75, 0.16);
+  --warning: #ff9f0a;
+  --warning-soft: rgba(255, 159, 10, 0.18);
+  --danger: #ff453a;
+  --danger-soft: rgba(255, 69, 58, 0.18);
+  --neutral: #98989d;
+  --neutral-soft: rgba(152, 152, 157, 0.18);
+
+  --sidebar-bg: rgba(28, 28, 30, 0.72);
+  --topbar-bg: rgba(0, 0, 0, 0.6);
+  --overlay-bg: rgba(0, 0, 0, 0.55);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 1px 1px rgba(0, 0, 0, 0.2);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+:root[data-theme="light"] {
+  --bg: #f5f5f7;
+  --surface: #ffffff;
+  --surface-alt: #fbfbfd;
+  --border: rgba(0, 0, 0, 0.09);
+  --border-strong: rgba(0, 0, 0, 0.14);
+
+  --text-primary: #1d1d1f;
+  --text-secondary: #6e6e73;
+  --text-tertiary: #86868b;
+
+  --fill-1: rgba(120, 120, 128, 0.08);
+  --fill-2: rgba(120, 120, 128, 0.12);
+  --fill-3: rgba(120, 120, 128, 0.16);
+  --fill-4: rgba(120, 120, 128, 0.2);
+
+  --accent: #1c4b96;
+  --accent-hover: #163c78;
+  --accent-soft: rgba(28, 75, 150, 0.1);
+
+  --success: #1db954;
+  --success-soft: rgba(29, 185, 84, 0.1);
+  --warning: #f2a900;
+  --warning-soft: rgba(242, 169, 0, 0.12);
+  --danger: #e2231c;
+  --danger-soft: rgba(226, 35, 28, 0.1);
+  --neutral: #8e8e93;
+  --neutral-soft: rgba(142, 142, 147, 0.12);
+
+  --sidebar-bg: rgba(251, 251, 253, 0.85);
+  --topbar-bg: rgba(245, 245, 247, 0.75);
+  --overlay-bg: rgba(0, 0, 0, 0.35);
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04), 0 1px 1px rgba(0, 0, 0, 0.03);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 12px 40px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
 * { box-sizing: border-box; }
 
 html, body {
@@ -333,6 +421,35 @@ input:-webkit-autofill:active {
 }
 
 .sidebar-signout-btn:hover { background: var(--danger-soft); color: var(--danger); }
+
+/* Theme picker (sidebar footer, every authenticated page) — same
+   segmented-control visual family as .view-toggle, just compact and
+   icon-only to fit the footer. Active choice highlighted the same way
+   .view-toggle's active button is. See js/api.js's setThemeChoice(). */
+.theme-toggle {
+  display: flex;
+  background: var(--fill-1);
+  border-radius: var(--radius-sm);
+  padding: 3px;
+  gap: 2px;
+  margin-top: 10px;
+}
+
+.theme-toggle button {
+  flex: 1;
+  border: none;
+  background: transparent;
+  padding: 6px 0;
+  border-radius: 8px;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+
+.theme-toggle button:hover { color: var(--text-secondary); }
+.theme-toggle button.active { background: var(--surface); color: var(--text-primary); box-shadow: var(--shadow-sm); }
 
 .avatar {
   width: 32px;

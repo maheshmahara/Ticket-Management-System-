@@ -52,6 +52,57 @@ function logout() {
 }
 
 /**
+ * Light / Dark / System theme picker. "system" is the implicit default
+ * (no localStorage entry at all) — matches this app's original,
+ * OS-only dark mode behavior exactly, so anyone who never touches the
+ * new control sees no change. "light"/"dark" set `data-theme` on
+ * <html>, which styles.css's `:root[data-theme="..."]` blocks override
+ * the `prefers-color-scheme` media query with, in both directions.
+ *
+ * The actual flash-of-wrong-theme prevention lives in each page's own
+ * inline <head> script (this file loads at the end of <body>, far too
+ * late to apply the theme before first paint) — that inline script and
+ * applyTheme() below intentionally duplicate the same few lines rather
+ * than sharing code, since the whole point is running before this file
+ * has even started downloading.
+ */
+const THEME_KEY = "hnbg_theme";
+
+function getThemeChoice() {
+  return localStorage.getItem(THEME_KEY) || "system";
+}
+
+function applyTheme(choice) {
+  if (choice === "light" || choice === "dark") {
+    document.documentElement.dataset.theme = choice;
+  } else {
+    delete document.documentElement.dataset.theme;
+  }
+}
+
+function setThemeChoice(choice) {
+  localStorage.setItem(THEME_KEY, choice);
+  applyTheme(choice);
+  syncThemeToggleUI();
+}
+
+function syncThemeToggleUI() {
+  const toggle = document.getElementById("theme-toggle");
+  if (!toggle) return;
+  const current = getThemeChoice();
+  toggle.querySelectorAll("button").forEach((b) => {
+    b.classList.toggle("active", b.dataset.themeChoice === current);
+  });
+}
+
+// Runs immediately as this file executes — by the time api.js loads
+// (end of <body>), the sidebar-footer markup (including #theme-toggle,
+// on every page that has one) is already parsed, so no need to wait
+// for DOMContentLoaded. Pages without a #theme-toggle (index.html,
+// create-task.html) no-op via the guard inside syncThemeToggleUI().
+syncThemeToggleUI();
+
+/**
  * Runs one GraphQL request. Throws an Error with `.code` (from the
  * typed extensions HNBG's resolvers attach — see
  * backend/app/graphql/errors.py) when the API returns a GraphQL error,
