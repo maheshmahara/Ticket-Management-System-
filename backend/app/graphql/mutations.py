@@ -234,6 +234,21 @@ class Mutation:
         return to_user(actor)
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
+    async def mark_notifications_seen(self, info: Info) -> User:
+        """Self-service, no target-id argument — same shape as
+        update_notification_preferences above. Called the moment the
+        topbar bell's dropdown is opened (see js/api.js's
+        initNotificationBell()); everything with created_at at or
+        before this timestamp reads as "read" from then on."""
+        db = info.context.db
+        actor = info.context.user
+
+        actor.notifications_last_seen_at = datetime.now(timezone.utc)
+        await db.commit()
+        await db.refresh(actor, attribute_names=["notifications_last_seen_at"])
+        return to_user(actor)
+
+    @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def update_my_profile(self, info: Info, input: UpdateMyProfileInput) -> User:
         """Self-service department/job title/phone/photo editing — see
         UpdateMyProfileInput's docstring for why permission Role isn't

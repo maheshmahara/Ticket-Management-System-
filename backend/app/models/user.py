@@ -98,6 +98,14 @@ class User(Base):
         nullable=True,
     )
 
+    # When the user last opened the notification bell — a notification is
+    # "unread" if its created_at is after this. NULL means never opened
+    # (everything unread), same as any brand-new user. See
+    # migrations/versions/0005_notification_seen.py.
+    notifications_last_seen_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
     assigned_tasks: Mapped[list["Task"]] = relationship(  # noqa: F821
         back_populates="assignee", foreign_keys="Task.assignee_id"
     )

@@ -10,10 +10,11 @@ from typing import Optional
 
 import strawberry
 from sqlalchemy import func, or_, select
+from sqlalchemy.orm import selectinload
 from strawberry.types import Info
 
 from app.graphql.errors import app_error
-from app.graphql.mappers import to_business_unit, to_department, to_task, to_user
+from app.graphql.mappers import to_business_unit, to_department, to_notification, to_task, to_user
 from app.graphql.permissions import IsAdmin, IsAuthenticated, IsManagerOrAdmin, can_view_task
 from app.graphql.types import (
     BusinessUnit,
@@ -21,6 +22,7 @@ from app.graphql.types import (
     Department,
     DepartmentKpi,
     KpiReport,
+    Notification,
     PageInfo,
     PageInput,
     ResolverLeaderboardEntry,
@@ -33,6 +35,7 @@ from app.graphql.types import (
     UserWorkload,
 )
 from app.models.department import Department as DepartmentModel
+from app.models.notification_log import NotificationLog as NotificationLogModel
 from app.models.task import Task as TaskModel
 from app.models.task import TaskPriority as TaskPriorityModel
 from app.models.task import TaskStatus
@@ -142,6 +145,41 @@ class Query:
             .order_by(UserModel.full_name)
         )
         return [to_user(u) for u in result.scalars().all()]
+
+    @strawberry.field(permission_classes=[IsAuthenticated])
+    async def my_notifications(self, info: Info) -> list[Notification]:
+        """Powers the topbar bell. NotificationLog has one row *per
+        channel* (a user with both email+SMS enabled gets two rows for
+        the same event) — overfetch a bit past the target count and
+        dedupe by (task_id, trigger) in Python, keeping the most recent
+        row per pair, since that's simpler than a window-function query
+        for a feed this small. See Notification's docstring for why
+        there's no separate "unread" field — the client compares
+        created_at against User.notifications_last_seen_at instead."""
+        db = info.context.db
+        user = info.context.user
+
+        result = await db.execute(
+            select(NotificationLogModel)
+            .options(selectinload(NotificationLogModel.task))
+            .where(NotificationLogModel.recipient_id == user.id)
+            .order_by(NotificationLogModel.created_at.desc())
+            .limit(60)
+        )
+        rows = result.scalars().all()
+
+        seen_keys = set()
+        deduped = []
+        for row in rows:
+            key = (row.task_id, row.trigger)
+            if key in seen_keys:
+                continue
+            seen_keys.add(key)
+            deduped.append(row)
+            if len(deduped) >= 20:
+                break
+
+        return [to_notification(row) for row in deduped]
 
     @strawberry.field(permission_classes=[IsAuthenticated])
     async def users(self, info: Info, department_id: Optional[strawberry.ID] = None) -> list[User]:
