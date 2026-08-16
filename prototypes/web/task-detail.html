@@ -107,6 +107,7 @@ requireAuth();
 const taskId = new URLSearchParams(location.search).get('id');
 let usersCache = null;
 let currentTask = null;
+let currentUser = null;
 
 function timeAgo(iso) {
   const diffMs = Date.now() - new Date(iso).getTime();
@@ -211,9 +212,20 @@ async function populateAssigneeSelect(task) {
   if (!select) return;
   try {
     if (!usersCache) usersCache = await Api.users();
+    // See create-task.html's identical comment — this is UX only, the
+    // server enforces the real rule (can_assign_task_to in
+    // permissions.py) regardless of what options were offered here.
+    // Always keeps the task's *current* assignee in the list even if
+    // they wouldn't be a valid *new* choice (e.g. a Manager assigned
+    // before this restriction existed) — otherwise the dropdown would
+    // silently show a different person than who the task is actually
+    // assigned to.
+    const assignable = usersCache.filter(
+      u => isValidAssigneeForMember(currentUser, u) || (task.assignee && u.id === task.assignee.id)
+    );
     select.innerHTML =
       '<option value="">Unassigned</option>' +
-      usersCache.map(u => `<option value="${u.id}" ${task.assignee && u.id === task.assignee.id ? 'selected' : ''}>${u.fullName}</option>`).join('');
+      assignable.map(u => `<option value="${u.id}" ${task.assignee && u.id === task.assignee.id ? 'selected' : ''}>${u.fullName}</option>`).join('');
   } catch (err) {
     // Non-fatal — reassigning just won't have a full list to pick from.
     console.error('Failed to load users for reassignment:', err);
@@ -396,6 +408,7 @@ async function handleAddComment(e) {
 (async function initSidebar() {
   try {
     const me = await Api.me();
+    currentUser = me;
     if (!me.profileCompletedAt) {
       location.href = 'my-profile.html';
       return;

@@ -188,7 +188,13 @@ async def assign_task(db: AsyncSession, *, task: Task, assignee_id: uuid.UUID | 
     changed = assignee_id != task.assignee_id
     task.assignee_id = assignee_id
     await db.commit()
-
+    # Same expire_on_commit=False staleness as update_task above — the
+    # already-loaded `task.assignee` relationship isn't invalidated by
+    # commit(), so without this the returned Task (and hence this
+    # mutation's own response) would still show the *previous* assignee.
+    # Confirmed live: reassigning A -> B -> None returned B, then A,
+    # then B again — one call behind — before this fix.
+    db.expire(task, ["assignee"])
     task = await get_task(db, task.id)
     if changed and task.assignee_id is not None:
         # Any priority — see enqueue_assignment_notification's docstring.

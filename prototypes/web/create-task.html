@@ -265,9 +265,11 @@ async function loadFormOptions() {
   const deptSelect = document.getElementById('department');
   const branchSelect = document.getElementById('branch');
   const assigneeSelect = document.getElementById('assignee');
+  let me; // hoisted so the assignee-loading block below can filter by it
 
   try {
-    const [departments, me] = await Promise.all([Api.departments(), Api.me()]);
+    const [departments, meResult] = await Promise.all([Api.departments(), Api.me()]);
+    me = meResult;
     if (!me.profileCompletedAt) {
       location.href = 'my-profile.html';
       return;
@@ -311,13 +313,17 @@ async function loadFormOptions() {
   }
 
   try {
-    // Unfiltered: any department's staff can be assigned a task from
-    // this form. Narrow to Api.users(deptSelect.value) on department
-    // change if per-department assignee lists are wanted later.
+    // Any department's staff can be assigned a task from this form —
+    // *except* for a Member, who can only assign to themselves or to
+    // another Member in their own department + branch (never "upward"
+    // to a Manager/Admin). Enforced server-side regardless (see
+    // can_assign_task_to in permissions.py); this filter just keeps a
+    // Member from seeing a choice they'd only get rejected for.
     const users = await Api.users();
+    const assignable = users.filter(u => isValidAssigneeForMember(me, u));
     assigneeSelect.insertAdjacentHTML(
       'beforeend',
-      users
+      assignable
         .map(u => `<option value="${u.id}" data-initials="${u.initials}" data-color="${u.avatarColor}">${u.fullName}</option>`)
         .join('')
     );
