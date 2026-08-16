@@ -358,6 +358,7 @@ const Api = {
       `query Me {
         me {
           id email fullName role avatarColor initials department { id name }
+          branch { id name }
           jobTitle phoneNumber photoBase64 profileCompletedAt requestedRole
           notificationsLastSeenAt
         }
@@ -414,7 +415,10 @@ const Api = {
   async users(departmentId) {
     const data = await gql(
       `query Users($departmentId: ID) {
-        users(departmentId: $departmentId) { id fullName initials avatarColor role }
+        users(departmentId: $departmentId) {
+          id fullName initials avatarColor role
+          department { id } branch { id }
+        }
       }`,
       { departmentId: departmentId || null }
     );
@@ -544,7 +548,7 @@ const Api = {
       `query UserWorkloads($departmentId: ID) {
         userWorkloads(departmentId: $departmentId) {
           openTaskCount
-          user { id fullName initials avatarColor }
+          user { id fullName initials avatarColor role department { id } branch { id } }
         }
       }`,
       { departmentId: departmentId || null }
@@ -890,6 +894,30 @@ function avatarInitials(person) {
 
 function avatarColor(person) {
   return person ? person.avatarColor : "var(--neutral)";
+}
+
+/**
+ * Client-side mirror of the backend's can_assign_task_to()
+ * (backend/app/graphql/permissions.py) — purely a UX filter so a
+ * Member never even sees a Manager/Admin/other-department name as an
+ * assignee option to begin with. This is NOT the actual enforcement:
+ * the server rejects an invalid choice regardless of what the UI
+ * offered, same as everywhere else in this app. `user` needs
+ * `id`/`role`/`department`/`branch` — the shape Api.users(),
+ * Api.userWorkloads()'s nested `user`, and Api.me() all share.
+ */
+function isValidAssigneeForMember(me, user) {
+  if (!me || me.role !== "MEMBER") return true;
+  if (user.id === me.id) return true;
+  return (
+    user.role === "MEMBER" &&
+    !!user.department &&
+    !!me.department &&
+    user.department.id === me.department.id &&
+    !!user.branch &&
+    !!me.branch &&
+    user.branch.id === me.branch.id
+  );
 }
 
 /**

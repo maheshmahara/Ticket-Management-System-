@@ -125,6 +125,7 @@ const COLUMNS = [
 ];
 
 let workloads = [];   // [{ openTaskCount, user }]
+let currentUser = null;
 let toastTimer = null;
 
 function showToast(message) {
@@ -138,6 +139,11 @@ function showToast(message) {
 function assigneeOptionsHtml(selectedId) {
   const opts = ['<option value="">Unassigned</option>'];
   for (const w of workloads) {
+    // UX filter only — see create-task.html's identical comment. Keeps
+    // whoever's *currently* selected in the list regardless (same
+    // "don't hide the ground truth" reasoning as task-detail.html's
+    // populateAssigneeSelect).
+    if (!isValidAssigneeForMember(currentUser, w.user) && w.user.id !== selectedId) continue;
     const selected = w.user.id === selectedId ? ' selected' : '';
     opts.push(`<option value="${w.user.id}"${selected}>${w.user.fullName} (${w.openTaskCount} open)</option>`);
   }
@@ -293,6 +299,7 @@ async function loadBoard() {
 (async function init() {
   try {
     const me = await Api.me();
+    currentUser = me;
     if (!me.profileCompletedAt) {
       location.href = 'my-profile.html';
       return;

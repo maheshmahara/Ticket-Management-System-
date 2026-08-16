@@ -96,3 +96,31 @@ def can_edit_task(user, task) -> bool:
         return user.department_id == task.department_id
     # MEMBER: only their own tasks (assigned to them or reported by them)
     return user.id in (task.assignee_id, task.reporter_id)
+
+
+def can_assign_task_to(actor, assignee) -> bool:
+    """
+    Whether `actor` may set a task's assignee to `assignee` — used by
+    createTask, updateTask, and assignTask (all three previously
+    disagreed with each other: create/update had no restriction at all,
+    assignTask allowed self only; this is now the single shared rule).
+
+    Admins and Managers are unrestricted — matches the existing
+    Admin > Manager > Member authority ordering can_edit_task already
+    encodes. Members may only assign to themselves, or to another
+    Member in their own department AND branch — never "upward" to a
+    Manager/Admin, and never outside their own local team. A Member
+    with no branch set can still only assign to themselves (fails
+    closed on missing data rather than opening up broader access).
+
+    `assignee=None` (unassigning) is always allowed regardless of role.
+    """
+    if actor.role != Role.MEMBER or assignee is None:
+        return True
+    if assignee.id == actor.id:
+        return True
+    return (
+        assignee.role == Role.MEMBER
+        and assignee.department_id == actor.department_id
+        and assignee.branch_id == actor.branch_id
+    )

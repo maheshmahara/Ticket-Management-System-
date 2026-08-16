@@ -23,7 +23,7 @@ from app.graphql.mappers import (
     to_task_attachment,
     to_user,
 )
-from app.graphql.permissions import IsAdmin, IsAuthenticated, can_edit_task, can_view_task
+from app.graphql.permissions import IsAdmin, IsAuthenticated, can_assign_task_to, can_edit_task, can_view_task
 from app.graphql.types import (
     AuthPayload,
     Branch,
@@ -99,7 +99,16 @@ class Mutation:
     @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def create_task(self, info: Info, input: CreateTaskInput) -> Task:
         db = info.context.db
-        task = await task_service.create_task(db, actor=info.context.user, input=input)
+        actor = info.context.user
+
+        if input.assignee_id:
+            assignee = await get_user_by_id(db, uuid.UUID(str(input.assignee_id)))
+            if assignee is None:
+                raise app_error("NOT_FOUND", "Assignee not found.")
+            if not can_assign_task_to(actor, assignee):
+                raise app_error("FORBIDDEN", "You can only assign tasks to members in your own department and branch.")
+
+        task = await task_service.create_task(db, actor=actor, input=input)
         return to_task(task)
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
@@ -112,6 +121,15 @@ class Mutation:
             raise app_error("NOT_FOUND", "Task not found.")
         if not can_edit_task(actor, task):
             raise app_error("FORBIDDEN", "You don't have permission to edit this task.")
+
+        # Matches UpdateTaskInput's own "None = unchanged" convention —
+        # nothing to validate if assignee_id isn't actually being touched.
+        if input.assignee_id is not None:
+            new_assignee = await get_user_by_id(db, uuid.UUID(str(input.assignee_id)))
+            if new_assignee is None:
+                raise app_error("NOT_FOUND", "Assignee not found.")
+            if not can_assign_task_to(actor, new_assignee):
+                raise app_error("FORBIDDEN", "You can only assign tasks to members in your own department and branch.")
 
         task = await task_service.update_task(db, actor=actor, task=task, input=input)
         return to_task(task)
@@ -130,10 +148,17 @@ class Mutation:
             raise app_error("FORBIDDEN", "You don't have permission to assign this task.")
 
         new_assignee_id = uuid.UUID(str(assignee_id)) if assignee_id else None
-        # Members may only assign to themselves — see the RBAC matrix in
-        # docs/BACKEND_ARCHITECTURE.md.
-        if actor.role.value == "member" and new_assignee_id != actor.id:
-            raise app_error("FORBIDDEN", "Members may only assign tasks to themselves.")
+        # Same shared rule createTask/updateTask enforce (see
+        # can_assign_task_to's docstring) — this used to be a stricter,
+        # self-only check ("Members may only assign tasks to themselves"),
+        # which disagreed with create/update having no restriction at
+        # all. Now all three converge on one rule: self, or a peer
+        # Member in the same department + branch.
+        new_assignee = await get_user_by_id(db, new_assignee_id) if new_assignee_id else None
+        if new_assignee_id and new_assignee is None:
+            raise app_error("NOT_FOUND", "Assignee not found.")
+        if not can_assign_task_to(actor, new_assignee):
+            raise app_error("FORBIDDEN", "You can only assign tasks to members in your own department and branch.")
 
         task = await task_service.assign_task(db, task=task, assignee_id=new_assignee_id)
         return to_task(task)
