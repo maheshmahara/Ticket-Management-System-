@@ -1428,6 +1428,28 @@ input:-webkit-autofill:active {
   pointer-events: none;
 }
 
+/* Attach-file trigger pinned to the Description field's top-right
+   corner (create-task.html) — the textarea gets matching right
+   padding so typed text doesn't run under it. */
+.aform-attach-btn {
+  position: absolute;
+  top: 14px;
+  right: 12px;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  border: none;
+  background: var(--fill-1);
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s var(--ease), color 0.15s var(--ease);
+}
+
+.aform-attach-btn:hover { background: var(--fill-2); color: var(--text-primary); }
+
 .aform-error {
   display: flex;
   align-items: center;

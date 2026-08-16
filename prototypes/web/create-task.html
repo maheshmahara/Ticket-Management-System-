@@ -44,8 +44,13 @@
             <label for="title">Task Title</label>
           </div>
           <div class="aform-field">
-            <textarea id="desc" rows="1" placeholder=" " oninput="autoExpand(this)"></textarea>
+            <textarea id="desc" rows="1" placeholder=" " oninput="autoExpand(this)" style="padding-right:36px"></textarea>
             <label for="desc">Description</label>
+            <button type="button" class="aform-attach-btn" onclick="document.getElementById('attachment-input').click()" title="Attach file">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+            </button>
+            <input type="file" id="attachment-input" multiple style="display:none" onchange="handleAttachmentsSelected(event)" />
+            <div id="staged-attachments" style="display:flex;flex-direction:column;gap:6px;margin-top:8px"></div>
           </div>
         </div>
         <div id="title-error" class="aform-error" style="display:none;padding:0 4px">
@@ -107,20 +112,6 @@
               </select>
             </div>
             <svg class="aform-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
-          </div>
-        </div>
-
-        <!-- Attachments — staged client-side; actually uploaded (via
-             Api.addTaskAttachment) after the task itself is created,
-             since a file has to attach to a real task id. -->
-        <div class="aform-group">
-          <div style="padding:14px 16px 4px">
-            <button type="button" class="btn btn-secondary" onclick="document.getElementById('attachment-input').click()">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
-              Attach file
-            </button>
-            <input type="file" id="attachment-input" multiple style="display:none" onchange="handleAttachmentsSelected(event)" />
-            <div id="staged-attachments" style="display:flex;flex-direction:column;gap:6px;margin-top:10px"></div>
           </div>
         </div>
 
