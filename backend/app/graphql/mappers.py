@@ -18,6 +18,7 @@ from app.models.branch import Branch as BranchModel
 from app.models.business_unit import BusinessUnit as BusinessUnitModel
 from app.models.comment import Comment as CommentModel
 from app.models.department import Department as DepartmentModel
+from app.models.notification_log import NotificationLog as NotificationLogModel
 from app.models.task import Task as TaskModel
 from app.models.user import User as UserModel
 
@@ -76,6 +77,7 @@ def to_user(user: UserModel) -> gql.User:
         photo_base64=user.photo_base64,
         profile_completed_at=user.profile_completed_at,
         requested_role=gql.Role(user.requested_role.value) if user.requested_role else None,
+        notifications_last_seen_at=user.notifications_last_seen_at,
     )
 
 
@@ -107,4 +109,17 @@ def to_task(task: TaskModel) -> gql.Task:
         created_at=task.created_at,
         updated_at=task.updated_at,
         comments=[to_comment(c) for c in task.comments],
+    )
+
+
+def to_notification(log: NotificationLogModel) -> gql.Notification:
+    return gql.Notification(
+        id=strawberry.ID(str(log.id)),
+        trigger=gql.NotificationTrigger(log.trigger.value),
+        created_at=log.created_at,
+        task=gql.NotificationTaskRef(
+            id=strawberry.ID(str(log.task.id)),
+            ticket_no=log.task.ticket_no,
+            title=log.task.title,
+        ),
     )

@@ -34,6 +34,14 @@ class TaskPriority(enum.Enum):
     URGENT = "urgent"
 
 
+@strawberry.enum
+class NotificationTrigger(enum.Enum):
+    TASK_CREATED = "task_created"
+    TASK_ASSIGNED = "task_assigned"
+    PRIORITY_ESCALATED = "priority_escalated"
+    TASK_OVERDUE = "task_overdue"
+
+
 @strawberry.type
 class Department:
     id: strawberry.ID
@@ -103,6 +111,9 @@ class User:
     # role actually enforced (that's always `role` above). See
     # requestRoleChange / respondToRoleRequest in mutations.py.
     requested_role: Optional[Role]
+    # When the notification bell was last opened — see
+    # myNotifications/markNotificationsSeen in queries.py/mutations.py.
+    notifications_last_seen_at: Optional[datetime]
 
 
 @strawberry.type
@@ -132,6 +143,30 @@ class Task:
     created_at: datetime
     updated_at: datetime
     comments: list[Comment]
+
+
+@strawberry.type
+class NotificationTaskRef:
+    """Lightweight Task reference for Notification.task — same pattern as
+    BusinessUnitRef, avoiding a full Task (comments, etc.) nobody needs
+    here."""
+
+    id: strawberry.ID
+    ticket_no: str
+    title: str
+
+
+@strawberry.type
+class Notification:
+    """Read-model over NotificationLog (app/models/notification_log.py),
+    deduped per (task, trigger) — see my_notifications in queries.py.
+    "Unread" isn't a field here; the client compares created_at against
+    User.notifications_last_seen_at instead (see that field's comment)."""
+
+    id: strawberry.ID
+    trigger: NotificationTrigger
+    created_at: datetime
+    task: NotificationTaskRef
 
 
 @strawberry.type

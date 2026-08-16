@@ -95,11 +95,195 @@ function syncThemeToggleUI() {
   });
 }
 
+/**
+ * Topbar "Search tickets, people…" — live, debounced, two-group
+ * dropdown (Tickets from Api.searchTasks(), People from
+ * Api.searchPeople()). Present on dashboard.html and tasks.html today;
+ * a page without #topbar-search-input just no-ops via the guard below.
+ * A ticket result opens task-detail.html; a person result opens
+ * create-task.html with them pre-selected as assignee — same
+ * ?assigneeId= prefill the Org Structure mind map's member nodes use
+ * (see create-task.html's loadFormOptions()).
+ */
+function initTopbarSearch() {
+  const input = document.getElementById("topbar-search-input");
+  const results = document.getElementById("topbar-search-results");
+  if (!input || !results) return;
+
+  let debounceTimer = null;
+
+  function closeResults() {
+    results.style.display = "none";
+    results.innerHTML = "";
+  }
+
+  function renderResults(tickets, people) {
+    if (tickets.length === 0 && people.length === 0) {
+      results.innerHTML = '<div class="search-empty">No matches.</div>';
+      results.style.display = "";
+      return;
+    }
+    let html = "";
+    if (tickets.length) {
+      html += '<div class="search-group-label">Tickets</div>';
+      html += tickets
+        .map(
+          (t) => `
+        <div class="search-result-row" onclick="location.href='task-detail.html?id=${t.id}'">
+          <span class="search-result-ticket">${t.ticketNo}</span>
+          <span class="search-result-title">${t.title}</span>
+        </div>`
+        )
+        .join("");
+    }
+    if (people.length) {
+      html += '<div class="search-group-label">People</div>';
+      html += people
+        .map(
+          (p) => `
+        <div class="search-result-row" onclick="location.href='create-task.html?assigneeId=${p.id}'">
+          <div class="avatar-sm" style="background:${p.avatarColor}">${p.initials}</div>
+          <span class="search-result-title">${p.fullName}</span>
+        </div>`
+        )
+        .join("");
+    }
+    results.innerHTML = html;
+    results.style.display = "";
+  }
+
+  input.addEventListener("input", () => {
+    clearTimeout(debounceTimer);
+    const query = input.value.trim();
+    if (!query) {
+      closeResults();
+      return;
+    }
+    debounceTimer = setTimeout(async () => {
+      try {
+        const [tickets, people] = await Promise.all([Api.searchTasks(query), Api.searchPeople(query)]);
+        // The debounce can let an older request resolve after a newer
+        // one if the network is slow — bail if the input has since
+        // changed, so a stale response doesn't overwrite fresher results.
+        if (input.value.trim() !== query) return;
+        renderResults(tickets, people);
+      } catch (err) {
+        results.innerHTML = '<div class="search-empty">Search failed.</div>';
+        results.style.display = "";
+      }
+    }, 250);
+  });
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") {
+      closeResults();
+      input.blur();
+    }
+  });
+
+  document.addEventListener("click", (e) => {
+    if (e.target !== input && !results.contains(e.target)) closeResults();
+  });
+}
+
+const NOTIFICATION_TRIGGER_LABEL = {
+  TASK_CREATED: "New ticket",
+  TASK_ASSIGNED: "Assigned to you",
+  PRIORITY_ESCALATED: "Priority escalated",
+  TASK_OVERDUE: "Overdue",
+};
+
+/** "2m ago" / "3h ago" / "5d ago", falling back to a short date past a
+ * week — same spirit as formatDuration() above but for a point in time
+ * rather than an elapsed span, so it can't reuse that function. */
+function formatRelativeTime(isoString) {
+  const diffMs = Date.now() - new Date(isoString).getTime();
+  const minutes = Math.floor(diffMs / 60000);
+  if (minutes < 1) return "just now";
+  if (minutes < 60) return `${minutes}m ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(isoString).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+}
+
+/**
+ * Topbar notification bell. Present on dashboard.html today; a page
+ * without #notif-bell-btn just no-ops via the guard below. Fetches
+ * once at load to decide whether the unread dot shows at all (compares
+ * each notification's createdAt against me.notificationsLastSeenAt —
+ * there's no separate unread flag per notification, see
+ * Notification's docstring in backend/app/graphql/types.py). Opening
+ * the panel calls markNotificationsSeen() immediately — badge clears
+ * on open, same as every mainstream notification bell, no separate
+ * "mark all read" click needed.
+ */
+function initNotificationBell() {
+  const btn = document.getElementById("notif-bell-btn");
+  const panel = document.getElementById("notif-panel");
+  const dot = document.getElementById("notif-dot");
+  if (!btn || !panel || !dot) return;
+
+  let cachedNotifications = [];
+
+  function renderPanel() {
+    if (cachedNotifications.length === 0) {
+      panel.innerHTML = '<div class="notif-empty">No notifications yet.</div>';
+      return;
+    }
+    panel.innerHTML = cachedNotifications
+      .map(
+        (n) => `
+      <div class="notif-row" onclick="location.href='task-detail.html?id=${n.task.id}'">
+        <div class="notif-row-text">${NOTIFICATION_TRIGGER_LABEL[n.trigger] || "Update"} — <strong>${n.task.ticketNo}</strong>: ${n.task.title}</div>
+        <div class="notif-row-time">${formatRelativeTime(n.createdAt)}</div>
+      </div>`
+      )
+      .join("");
+  }
+
+  btn.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    const isOpen = panel.style.display !== "none";
+    if (isOpen) {
+      panel.style.display = "none";
+      return;
+    }
+    renderPanel();
+    panel.style.display = "";
+    dot.style.display = "none";
+    Api.markNotificationsSeen().catch(() => {});
+  });
+
+  document.addEventListener("click", (e) => {
+    if (e.target !== btn && !btn.contains(e.target) && !panel.contains(e.target)) {
+      panel.style.display = "none";
+    }
+  });
+
+  Promise.all([Api.myNotifications(), Api.me()])
+    .then(([notifications, me]) => {
+      cachedNotifications = notifications;
+      const lastSeen = me.notificationsLastSeenAt ? new Date(me.notificationsLastSeenAt) : null;
+      const hasUnread = notifications.some((n) => !lastSeen || new Date(n.createdAt) > lastSeen);
+      dot.style.display = hasUnread ? "" : "none";
+    })
+    .catch(() => {
+      // Non-fatal — the bell just won't show a badge if this fails
+      // (e.g. logged out mid-load); clicking it will still try to load.
+    });
+}
+
 // Runs immediately as this file executes — by the time api.js loads
 // (end of <body>), the sidebar-footer markup (including #theme-toggle,
 // on every page that has one) is already parsed, so no need to wait
 // for DOMContentLoaded. Pages without a #theme-toggle (index.html,
 // create-task.html) no-op via the guard inside syncThemeToggleUI().
+// initTopbarSearch()/initNotificationBell() themselves are called much
+// further down, after `const Api` is actually defined — both reference
+// Api.* the moment they run (not just when their event handlers later
+// fire), so calling them here would hit Api's temporal dead zone.
 syncThemeToggleUI();
 
 /**
@@ -175,6 +359,7 @@ const Api = {
         me {
           id email fullName role avatarColor initials department { id name }
           jobTitle phoneNumber photoBase64 profileCompletedAt requestedRole
+          notificationsLastSeenAt
         }
       }`
     );
@@ -517,6 +702,49 @@ const Api = {
     return data.users;
   },
 
+  /** Topbar search's "Tickets" half — TaskFilterInput.search is a plain
+   * ilike on title, already used server-side, just never wired to a UI
+   * before now. Small page (6) — this is a live-typing dropdown, not a
+   * results page. */
+  async searchTasks(query) {
+    const data = await gql(
+      `query SearchTasks($q: String!) {
+        tasks(filter: { search: $q }, page: { first: 6 }) {
+          edges { node { id ticketNo title status priority } }
+        }
+      }`,
+      { q: query }
+    );
+    return data.tasks.edges.map(e => e.node);
+  },
+
+  /** Topbar search's "People" half — no backend search filter exists
+   * for users (unlike tasks), and at ~40 staff there's no need for
+   * one: reuse orgMembers() and filter client-side. */
+  async searchPeople(query) {
+    const members = await Api.orgMembers();
+    const q = query.toLowerCase();
+    return members.filter(u => u.fullName.toLowerCase().includes(q)).slice(0, 6);
+  },
+
+  /** Topbar notification bell — see Notification's docstring in
+   * backend/app/graphql/types.py for why there's no separate "unread"
+   * field on each row; the caller compares createdAt against
+   * me.notificationsLastSeenAt itself (see initNotificationBell()). */
+  async myNotifications() {
+    const data = await gql(
+      `query MyNotifications {
+        myNotifications { id trigger createdAt task { id ticketNo title } }
+      }`
+    );
+    return data.myNotifications;
+  },
+
+  async markNotificationsSeen() {
+    const data = await gql(`mutation { markNotificationsSeen { id notificationsLastSeenAt } }`);
+    return data.markNotificationsSeen;
+  },
+
   async createDepartment(name) {
     const data = await gql(`mutation($name: String!) { createDepartment(name: $name) { id name } }`, { name });
     return data.createDepartment;
@@ -658,3 +886,10 @@ function formatDuration(seconds) {
   if (hours > 0) return `${hours}h ${minutes}m`;
   return `${minutes}m`;
 }
+
+// Must run after `const Api` above — both call Api.* immediately (not
+// just from a later event handler), so calling them any earlier in
+// this file hits Api's temporal dead zone. Each no-ops on a page
+// without the relevant markup (see the guards inside both).
+initTopbarSearch();
+initNotificationBell();
