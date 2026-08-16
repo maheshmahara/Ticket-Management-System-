@@ -63,6 +63,14 @@
             <svg class="aform-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
           </div>
 
+          <div class="aform-field is-static">
+            <select id="branch">
+              <option value="">Loading…</option>
+            </select>
+            <label for="branch">Branch</label>
+            <svg class="aform-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+
           <div>
             <div class="aform-section-label">
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><path d="M4 22V15"/></svg>
@@ -116,6 +124,20 @@
           </div>
         </div>
 
+        <!-- Attachments — staged client-side; actually uploaded (via
+             Api.addTaskAttachment) after the task itself is created,
+             since a file has to attach to a real task id. -->
+        <div class="aform-group">
+          <div style="padding:14px 16px 4px">
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('attachment-input').click()">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+              Attach file
+            </button>
+            <input type="file" id="attachment-input" multiple style="display:none" onchange="handleAttachmentsSelected(event)" />
+            <div id="staged-attachments" style="display:flex;flex-direction:column;gap:6px;margin-top:10px"></div>
+          </div>
+        </div>
+
         <div class="aform-footer">
           <button type="button" class="btn btn-secondary" onclick="location.href='tasks.html'">Cancel</button>
           <button type="submit" class="btn btn-primary">Create Task</button>
@@ -147,7 +169,18 @@ requireAuth();
   document.getElementById('due').value = local;
 })();
 
+// Apple-style dropdowns (js/api.js) — the <select> elements stay in the
+// DOM as the real data model (hidden), so every .value read below is
+// completely unaffected by this. Assignee's whole avatar row is the
+// click target rather than just its bare value text, since that row
+// is already doing real work (shows the selected person's avatar).
+convertSelectToAppleDropdown(document.getElementById('department'));
+convertSelectToAppleDropdown(document.getElementById('branch'));
+convertSelectToAppleDropdown(document.getElementById('duration'));
+convertSelectToAppleDropdown(document.getElementById('assignee'), { triggerEl: document.querySelector('.aform-assignee') });
+
 let selectedPriority = 'low';
+let stagedAttachments = []; // { file, base64 } — uploaded only after the task itself exists
 
 function autoExpand(el) {
   el.style.height = 'auto';
@@ -178,8 +211,59 @@ function clearTitleError() {
   document.getElementById('title-error').style.display = 'none';
 }
 
+function formatFileSize(bytes) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function renderStagedAttachments() {
+  const el = document.getElementById('staged-attachments');
+  el.innerHTML = stagedAttachments
+    .map(
+      (a, i) => `
+    <div class="attachment-chip">
+      <span class="attachment-chip-name">${a.file.name}</span>
+      <span class="attachment-chip-size">${formatFileSize(a.file.size)}</span>
+      <button type="button" class="attachment-chip-remove" onclick="removeStagedAttachment(${i})" title="Remove">
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>`
+    )
+    .join('');
+}
+
+function removeStagedAttachment(index) {
+  stagedAttachments.splice(index, 1);
+  renderStagedAttachments();
+}
+
+/** Reads each picked file as base64 (no resizing — unlike photos,
+ * these aren't necessarily images) and stages it client-side; nothing
+ * is uploaded until the form is actually submitted, since a file has
+ * to attach to a real task id (see handleCreateTaskSubmit). */
+async function handleAttachmentsSelected(e) {
+  const files = [...e.target.files];
+  e.target.value = ''; // allow re-picking the same file name later
+  for (const file of files) {
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(new Error('Could not read that file.'));
+        reader.onload = () => resolve(reader.result.split(',')[1]);
+        reader.readAsDataURL(file);
+      });
+      stagedAttachments.push({ file, base64 });
+    } catch (err) {
+      alert(`Couldn't read "${file.name}": ${err.message}`);
+    }
+  }
+  renderStagedAttachments();
+}
+
 async function loadFormOptions() {
   const deptSelect = document.getElementById('department');
+  const branchSelect = document.getElementById('branch');
   const assigneeSelect = document.getElementById('assignee');
 
   try {
@@ -200,8 +284,30 @@ async function loadFormOptions() {
     if (me.department && departments.some(d => d.id === me.department.id)) {
       deptSelect.value = me.department.id;
     }
+    deptSelect.appleDropdownSync();
   } catch (err) {
     deptSelect.innerHTML = '<option value="">Failed to load departments</option>';
+    deptSelect.appleDropdownSync();
+  }
+
+  try {
+    // Branch is optional and independent of Department (see the Task
+    // model's branch_id comment) — no filtering tie between the two,
+    // every branch across every business unit is always offered here.
+    // Label includes the business unit whenever there's more than one,
+    // since branch names alone aren't guaranteed unique across units.
+    const businessUnits = await Api.businessUnits();
+    const showUnitName = businessUnits.length > 1;
+    const branchOptions = businessUnits.flatMap(bu =>
+      bu.branches.map(b => ({ id: b.id, label: showUnitName ? `${b.name} — ${bu.name}` : b.name }))
+    );
+    branchSelect.innerHTML =
+      '<option value="">No branch</option>' +
+      branchOptions.map(b => `<option value="${b.id}">${b.label}</option>`).join('');
+    branchSelect.appleDropdownSync();
+  } catch (err) {
+    branchSelect.innerHTML = '<option value="">No branch</option>';
+    branchSelect.appleDropdownSync();
   }
 
   try {
@@ -215,6 +321,7 @@ async function loadFormOptions() {
         .map(u => `<option value="${u.id}" data-initials="${u.initials}" data-color="${u.avatarColor}">${u.fullName}</option>`)
         .join('')
     );
+    assigneeSelect.appleDropdownSync();
   } catch (err) {
     // Non-fatal — "Unassigned" is still a valid choice.
     console.error('Failed to load assignees:', err);
@@ -235,10 +342,14 @@ async function loadFormOptions() {
   const params = new URLSearchParams(location.search);
   const departmentIdParam = params.get('departmentId');
   const assigneeIdParam = params.get('assigneeId');
-  if (departmentIdParam) deptSelect.value = departmentIdParam;
+  if (departmentIdParam) {
+    deptSelect.value = departmentIdParam;
+    deptSelect.appleDropdownSync();
+  }
   if (assigneeIdParam) {
     assigneeSelect.value = assigneeIdParam;
     updateAssigneeAvatar(assigneeSelect);
+    assigneeSelect.appleDropdownSync();
   }
 }
 
@@ -253,6 +364,7 @@ async function handleCreateTaskSubmit(e) {
   }
 
   const departmentId = document.getElementById('department').value;
+  const branchId = document.getElementById('branch').value;
   const assigneeId = document.getElementById('assignee').value;
   const description = document.getElementById('desc').value.trim();
   const startDateRaw = document.getElementById('start-date').value;
@@ -263,11 +375,13 @@ async function handleCreateTaskSubmit(e) {
   submitBtn.disabled = true;
   submitBtn.textContent = 'Creating…';
 
+  let newTask;
   try {
-    await Api.createTask({
+    newTask = await Api.createTask({
       title,
       description: description || null,
       departmentId,
+      branchId: branchId || null,
       priority: selectedPriority.toUpperCase(),
       // "YYYY-MM-DD" alone parses as UTC midnight in JS (date-only ISO
       // strings are a spec special-case) — appending T00:00:00 forces
@@ -279,7 +393,6 @@ async function handleCreateTaskSubmit(e) {
       durationMinutes,
       assigneeId: assigneeId || null,
     });
-    location.href = 'tasks.html';
   } catch (err) {
     if (err.code === 'FORBIDDEN' || err.message.includes('logged in')) {
       logout();
@@ -288,7 +401,27 @@ async function handleCreateTaskSubmit(e) {
     alert(`Couldn't create the task: ${err.message}`);
     submitBtn.disabled = false;
     submitBtn.textContent = 'Create Task';
+    return false;
   }
+
+  // The task exists now regardless of what happens below — a file
+  // can only attach to a real task id, so this couldn't happen any
+  // earlier. Any individual attachment failure is surfaced but never
+  // blocks navigation: the task itself was created successfully
+  // either way, and landing on its detail page (not tasks.html) means
+  // whatever did/didn't attach is immediately visible to retry there.
+  const failedAttachments = [];
+  for (const staged of stagedAttachments) {
+    try {
+      await Api.addTaskAttachment(newTask.id, staged.file.name, staged.file.type || 'application/octet-stream', staged.base64);
+    } catch (err) {
+      failedAttachments.push(staged.file.name);
+    }
+  }
+  if (failedAttachments.length > 0) {
+    alert(`Task created, but couldn't attach: ${failedAttachments.join(', ')}. You can try attaching again from the task.`);
+  }
+  location.href = `task-detail.html?id=${newTask.id}`;
   return false;
 }
 

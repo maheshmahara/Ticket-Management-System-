@@ -20,6 +20,7 @@ from app.graphql.mappers import (
     to_comment,
     to_department,
     to_task,
+    to_task_attachment,
     to_user,
 )
 from app.graphql.permissions import IsAdmin, IsAuthenticated, can_edit_task, can_view_task
@@ -37,6 +38,7 @@ from app.graphql.types import (
     Department,
     NotificationPreferencesInput,
     Task,
+    TaskAttachment,
     UpdateBranchInput,
     UpdateMyProfileInput,
     UpdateUserInput,
@@ -47,7 +49,7 @@ from app.graphql.types import UpdateTaskInput, User
 from app.models.task import TaskPriority as TaskPriorityModel
 from app.models.task import TaskStatus as TaskStatusModel
 from app.models.user import Role as RoleModel
-from app.services import org_service, task_service
+from app.services import attachment_service, org_service, task_service
 from app.services.user_service import get_user_by_email, get_user_by_id
 
 # Defense in depth, not the primary control — the client resizes to
@@ -211,6 +213,52 @@ class Mutation:
 
         comment = await task_service.add_comment(db, actor=actor, task=task, body=body.strip())
         return to_comment(comment)
+
+    @strawberry.mutation(permission_classes=[IsAuthenticated])
+    async def add_task_attachment(
+        self, info: Info, task_id: strawberry.ID, file_name: str, content_type: str, file_base64: str
+    ) -> TaskAttachment:
+        """Same auth shape as add_comment — anyone who can see the ticket
+        can attach a file to it. See attachment_service's
+        MAX_ATTACHMENT_BASE64_LENGTH for why this app stores attachments
+        directly in Postgres rather than object storage."""
+        db = info.context.db
+        actor = info.context.user
+
+        task = await task_service.get_task(db, uuid.UUID(str(task_id)))
+        if task is None:
+            raise app_error("NOT_FOUND", "Task not found.")
+        if not can_view_task(actor, task):
+            raise app_error("FORBIDDEN", "You don't have access to this task.")
+        if not file_name.strip():
+            raise app_error("VALIDATION_ERROR", "File name can't be empty.")
+        if len(file_base64) > attachment_service.MAX_ATTACHMENT_BASE64_LENGTH:
+            raise app_error("VALIDATION_ERROR", "That file is too large to attach.")
+        try:
+            attachment = await attachment_service.add_task_attachment(
+                db, actor=actor, task=task, file_name=file_name.strip(), content_type=content_type, file_base64=file_base64
+            )
+        except Exception:
+            raise app_error("VALIDATION_ERROR", "That file's data isn't valid.")
+        return to_task_attachment(attachment)
+
+    @strawberry.mutation(permission_classes=[IsAuthenticated])
+    async def delete_task_attachment(self, info: Info, id: strawberry.ID) -> bool:
+        """Gated by can_edit_task, not just "uploaded it themselves" — the
+        same people who can edit a ticket's other fields (assignee,
+        reporter, admins, department managers) can also remove something
+        attached to it, matching deleteTask's own permission shape."""
+        db = info.context.db
+        actor = info.context.user
+
+        attachment = await attachment_service.get_task_attachment(db, uuid.UUID(str(id)))
+        if attachment is None:
+            raise app_error("NOT_FOUND", "Attachment not found.")
+        if not can_edit_task(actor, attachment.task):
+            raise app_error("FORBIDDEN", "You don't have permission to delete this attachment.")
+
+        await attachment_service.delete_task_attachment(db, attachment=attachment)
+        return True
 
     @strawberry.mutation(permission_classes=[IsAuthenticated])
     async def update_notification_preferences(self, info: Info, input: NotificationPreferencesInput) -> User:

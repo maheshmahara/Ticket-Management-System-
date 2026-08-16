@@ -125,6 +125,22 @@ class Comment:
 
 
 @strawberry.type
+class TaskAttachment:
+    """Metadata only — file_base64 is deliberately NOT a field here.
+    Task Detail's attachment list never needs every file's full bytes
+    just to render names/sizes; taskAttachmentContent(id) in
+    queries.py fetches the payload on demand, only when Download is
+    actually clicked."""
+
+    id: strawberry.ID
+    file_name: str
+    content_type: str
+    file_size_bytes: int
+    uploaded_by: User
+    created_at: datetime
+
+
+@strawberry.type
 class Task:
     id: strawberry.ID
     ticket_no: str
@@ -133,6 +149,9 @@ class Task:
     status: TaskStatus
     priority: TaskPriority
     department: Department
+    # Purely descriptive — not part of RBAC scoping. See branch_id's
+    # comment on the Task model.
+    branch: Optional[Branch]
     assignee: Optional[User]
     reporter: User
     due_at: Optional[datetime]
@@ -143,6 +162,7 @@ class Task:
     created_at: datetime
     updated_at: datetime
     comments: list[Comment]
+    attachments: list[TaskAttachment]
 
 
 @strawberry.type
@@ -303,6 +323,7 @@ class CreateTaskInput:
     title: str
     description: Optional[str] = None
     department_id: strawberry.ID
+    branch_id: Optional[strawberry.ID] = None
     priority: TaskPriority = TaskPriority.MEDIUM
     status: TaskStatus = TaskStatus.PENDING
     due_at: Optional[datetime] = None
@@ -316,6 +337,7 @@ class UpdateTaskInput:
     title: Optional[str] = None
     description: Optional[str] = None
     department_id: Optional[strawberry.ID] = None
+    branch_id: Optional[strawberry.ID] = None
     priority: Optional[TaskPriority] = None
     status: Optional[TaskStatus] = None
     due_at: Optional[datetime] = None
