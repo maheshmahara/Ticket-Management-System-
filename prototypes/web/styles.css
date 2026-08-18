@@ -1490,7 +1490,12 @@ input:-webkit-autofill:active {
   flex-shrink: 0;
 }
 
-.aform-assignee {
+/* Generic "leading icon + label-over-value" row — the shape Reminders
+   uses for every settings row (Date, Time, List, ...). Originally
+   written just for Assignee's avatar row; generalized so Department/
+   Branch/Start Date/Due Date can share it too, each with a plain
+   glyph instead of an avatar. */
+.aform-icon-row {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1498,22 +1503,30 @@ input:-webkit-autofill:active {
   position: relative;
 }
 
-.aform-assignee-avatar {
+.aform-row-icon {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--text-tertiary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Assignee's leading slot is a colored avatar (initials/photo) rather
+   than a plain glyph — same row shape, richer leading content. */
+.aform-row-icon.is-avatar {
   width: 32px;
   height: 32px;
   border-radius: 50%;
   color: white;
   font-size: 11px;
   font-weight: 700;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
 }
 
-.aform-assignee-body { flex: 1; position: relative; }
+.aform-row-body { flex: 1; position: relative; min-width: 0; }
 
-.aform-assignee-body label {
+.aform-row-body label {
   position: absolute;
   left: 0;
   top: -14px;
@@ -1521,7 +1534,9 @@ input:-webkit-autofill:active {
   color: var(--text-tertiary);
 }
 
-.aform-assignee-body select {
+.aform-row-body select,
+.aform-row-body input[type="date"],
+.aform-row-body input[type="datetime-local"] {
   width: 100%;
   border: none;
   background: transparent;
@@ -1532,6 +1547,17 @@ input:-webkit-autofill:active {
   appearance: none;
   padding: 4px 20px 2px 0;
   cursor: pointer;
+}
+
+/* Chrome/Safari render their own calendar/clock glyph inside native
+   date & datetime-local inputs — redundant next to the trailing
+   .aform-chevron every row already gets, and it doesn't pick up
+   var(--text-primary) so it stays a stray black square in dark mode.
+   Hidden; clicking anywhere in the field still opens the native
+   picker in Chromium. */
+.aform-row-body input[type="date"]::-webkit-calendar-picker-indicator,
+.aform-row-body input[type="datetime-local"]::-webkit-calendar-picker-indicator {
+  display: none;
 }
 
 .aform-footer {
@@ -2453,7 +2479,7 @@ input:-webkit-autofill:active {
 }
 
 .aform-field .apple-dropdown-value { padding: 8px 0 4px; }
-.aform-assignee-body .apple-dropdown-value { padding: 4px 0 2px; }
+.aform-row-body .apple-dropdown-value { padding: 4px 0 2px; }
 
 .apple-dropdown-panel {
   position: absolute;
