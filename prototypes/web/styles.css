@@ -713,97 +713,76 @@ input:-webkit-autofill:active {
 .btn-block { width: 100%; justify-content: center; }
 .btn-lg { padding: 13px 20px; font-size: 15px; }
 
-/* ---------- Status Overview Cards ---------- */
+/* ---------- Status Overview Tiles ----------
+   Reminders-app inspired: flat vivid gradient tiles instead of bordered/
+   tinted cards. Each status gets one fixed, intuitive color (red = needs
+   attention, amber = active, blue = waiting, green = done) rather than the
+   old volume-driven blue→red scale — a fixed mapping is simpler to read
+   at a glance and needs no legend. Self-contained color moment, so it
+   does not vary with light/dark theme (same reasoning as the reference:
+   category colors don't change with the OS theme either). */
 
 .status-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
+  gap: 14px;
   margin-bottom: 28px;
 }
 
-.status-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  padding: 22px;
-  box-shadow: var(--shadow-sm);
-  transition: transform 0.18s var(--ease), box-shadow 0.18s var(--ease), border-color 0.18s var(--ease);
+.status-tile {
+  background: var(--tile-grad);
+  border: none;
+  border-radius: 20px;
+  padding: 18px 20px;
+  min-height: 104px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  color: #fff;
   cursor: pointer;
   position: relative;
   overflow: hidden;
+  box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.35);
+  transition: transform 0.18s var(--ease), box-shadow 0.18s var(--ease), filter 0.18s var(--ease);
 }
 
-.severity-bar {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  height: 3px;
-  background: var(--sev-color);
+.status-tile:hover {
+  transform: translateY(-2px) scale(1.015);
+  filter: brightness(1.06);
+  box-shadow: 0 10px 24px -6px rgba(0, 0, 0, 0.4);
 }
 
-.status-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
-  border-color: var(--sev-color);
-}
+.status-tile:active { transform: scale(0.98); }
 
-.status-card-top {
+.status-tile-top {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 18px;
 }
 
-.status-icon {
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
+.status-tile-icon {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.24);
   display: flex;
   align-items: center;
   justify-content: center;
+  color: #fff;
 }
 
-.status-icon.pending { background: var(--warning-soft); color: var(--warning); }
-.status-icon.progress { background: var(--accent-soft); color: var(--accent); }
-.status-icon.review { background: rgba(175, 82, 222, 0.12); color: #af52de; }
-.status-icon.done { background: var(--success-soft); color: var(--success); }
-
-.status-trend {
-  font-size: 11.5px;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: var(--radius-pill);
-}
-
-.trend-up { background: var(--danger-soft); color: var(--danger); }
-.trend-down { background: var(--success-soft); color: var(--success); }
-.trend-flat { background: var(--neutral-soft); color: var(--neutral); }
-
-.status-count {
-  font-size: 32px;
+.status-tile-count {
+  font-size: 28px;
   font-weight: 700;
   letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
   line-height: 1;
-  margin-bottom: 6px;
 }
 
-.status-label {
-  font-size: 13px;
+.status-tile-label {
+  font-size: 14.5px;
   font-weight: 600;
-  display: inline-flex;
-  align-items: center;
-  padding: 5px 12px;
-  border-radius: var(--radius-pill);
-  background: var(--sev-bg);
-  border: 1px solid var(--sev-border);
-  color: var(--sev-color);
-  transition: transform 0.15s var(--ease);
-}
-
-.status-card:hover .status-label {
-  transform: translateY(-1px);
+  color: rgba(255, 255, 255, 0.96);
 }
 
 /* ---------- Section blocks (per-status row: sample ticket + count) ---------- */
