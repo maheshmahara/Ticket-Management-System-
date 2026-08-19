@@ -829,15 +829,6 @@ input:-webkit-autofill:active {
 .ticket-row:last-child { border-bottom: none; }
 .ticket-row:hover { background: var(--surface-alt); }
 
-.ticket-no {
-  font-size: 12.5px;
-  font-weight: 600;
-  color: var(--text-tertiary);
-  font-variant-numeric: tabular-nums;
-}
-
-.ticket-title-cell { min-width: 0; }
-.ticket-title { font-size: 14px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ticket-meta { font-size: 12px; color: var(--text-tertiary); margin-top: 2px; }
 
 .avatar-sm {
@@ -850,7 +841,13 @@ input:-webkit-autofill:active {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
+
+/* Tiny variant for tasks.html's list rows (js/api.js's renderRow()) —
+   same avatar, just sized to sit inline with the meta text instead of
+   the roomier 26px used in task-detail.html's comment/reporter rows. */
+.avatar-sm.is-tiny { width: 18px; height: 18px; font-size: 8px; }
 
 .priority-tag {
   font-size: 11px;
@@ -1055,52 +1052,93 @@ input:-webkit-autofill:active {
   overflow: hidden;
 }
 
-.table-head {
-  display: grid;
-  grid-template-columns: 32px 90px 1fr 140px 130px 130px 100px 40px;
-  gap: 16px;
-  padding: 12px 24px;
+/* Slim "select all" bar above the list — replaces the old spreadsheet-
+   style column-header row (Ticket No / Title / Status / ...): Reminders
+   itself never labels columns, the row content speaks for itself. */
+.task-list-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
   border-bottom: 1px solid var(--border);
   background: var(--surface-alt);
 }
 
-.table-head span {
-  font-size: 11px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+.task-list-toolbar-label {
+  font-size: 12px;
+  font-weight: 600;
   color: var(--text-tertiary);
 }
 
-.table-row {
-  display: grid;
-  grid-template-columns: 32px 90px 1fr 140px 130px 130px 100px 40px;
-  gap: 16px;
+/* Reminders-style list row: round checkbox, title+meta stacked on the
+   left, due date + status/priority stacked on the right — a flowing
+   row instead of a rigid multi-column grid. */
+.task-item {
+  display: flex;
   align-items: center;
-  padding: 14px 24px;
+  gap: 14px;
+  padding: 14px 20px;
   border-bottom: 1px solid var(--border);
   transition: background 0.12s var(--ease);
   cursor: pointer;
 }
 
-.table-row:last-child { border-bottom: none; }
-.table-row:hover { background: var(--surface-alt); }
+.task-item:last-child { border-bottom: none; }
+.task-item:hover { background: var(--surface-alt); }
 
-.checkbox {
-  width: 17px;
-  height: 17px;
-  border-radius: 5px;
-  border: 1.5px solid var(--border-strong);
+.task-item-body { flex: 1; min-width: 0; }
+
+.task-item-title {
+  font-size: 14.5px;
+  font-weight: 600;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
+
+.task-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  margin-top: 3px;
+}
+
+.task-item-trailing {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+  flex-shrink: 0;
+}
+
+.task-item-tags { display: flex; align-items: center; gap: 6px; }
+
+/* Compact status marker for the list row — .status-chip (task-detail.html)
+   stays a labeled pill since it's the one place a status is shown on its
+   own; here it just needs to be scannable next to the priority tag. */
+.status-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-dot.pending { background: var(--warning); }
+.status-dot.progress { background: var(--accent); }
+.status-dot.review { background: #af52de; }
+.status-dot.done { background: var(--success); }
 
 /* Real <input type="checkbox"> for row/select-all selection in tasks.html
    — appearance:none since native checkbox rendering doesn't follow our
-   design tokens, no :checked styling existed before this because there
-   was never a real checkbox input on this page until bulk actions. */
+   design tokens. Round rather than the usual square/rounded-square
+   checkbox, matching Reminders' circular completion marker. */
 .row-checkbox {
-  width: 17px;
-  height: 17px;
-  border-radius: 5px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
   border: 1.5px solid var(--border-strong);
   appearance: none;
   background: var(--surface);
@@ -1119,8 +1157,8 @@ input:-webkit-autofill:active {
 
 .row-checkbox:checked::after {
   content: "";
-  width: 4px;
-  height: 8px;
+  width: 5px;
+  height: 9px;
   border: solid white;
   border-width: 0 2px 2px 0;
   transform: rotate(45deg) translate(-1px, -1px);

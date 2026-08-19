@@ -150,15 +150,9 @@
       <div class="bulk-result" id="bulk-result" style="display:none"></div>
 
       <div class="table-panel">
-        <div class="table-head">
+        <div class="task-list-toolbar">
           <input type="checkbox" id="select-all" class="row-checkbox" onchange="toggleSelectAll(this.checked)" />
-          <span>Ticket No</span>
-          <span>Title</span>
-          <span>Status</span>
-          <span>Assignee</span>
-          <span>Due Date</span>
-          <span>Priority</span>
-          <span></span>
+          <span class="task-list-toolbar-label">Select all</span>
         </div>
 
         <div id="task-rows">
@@ -248,21 +242,25 @@ function renderRow(task) {
   const statusLabel = STATUS_LABEL[task.status] || task.status;
   const priorityClass = PRIORITY_CLASS[task.priority] || 'priority-low';
   const priorityLabel = PRIORITY_LABEL[task.priority] || task.priority;
+  const assigneeText = assignee
+    ? `<span class="avatar-sm is-tiny" style="background:${avatarColor(assignee)}">${avatarInitials(assignee)}</span>${assignee.fullName}`
+    : 'Unassigned';
 
   return `
-    <div class="table-row" onclick="location.href='task-detail.html?id=${task.id}'">
+    <div class="task-item" onclick="location.href='task-detail.html?id=${task.id}'">
       <input type="checkbox" class="row-checkbox" data-id="${task.id}" ${selectedIds.has(task.id) ? 'checked' : ''}
         onclick="event.stopPropagation()" onchange="toggleRowSelection('${task.id}', this.checked)" />
-      <div class="ticket-no">#${task.ticketNo}</div>
-      <div class="ticket-title-cell"><div class="ticket-title">${task.title}</div></div>
-      <span class="status-chip ${statusClass}">● ${statusLabel}</span>
-      <div class="assignee-cell">
-        ${assignee
-          ? `<div class="avatar-sm" style="background:${avatarColor(assignee)}">${avatarInitials(assignee)}</div>${assignee.fullName}`
-          : `<span style="color:var(--text-tertiary)">Unassigned</span>`}
+      <div class="task-item-body">
+        <div class="task-item-title">${task.title}</div>
+        <div class="task-item-meta">#${task.ticketNo} · ${assigneeText}</div>
       </div>
-      ${formatDueDate(task.dueAt, task.isOverdue)}
-      <span class="priority-tag ${priorityClass}">${priorityLabel}</span>
+      <div class="task-item-trailing">
+        ${formatDueDate(task.dueAt, task.isOverdue)}
+        <div class="task-item-tags">
+          <span class="status-dot ${statusClass}" title="${statusLabel}"></span>
+          <span class="priority-tag ${priorityClass}">${priorityLabel}</span>
+        </div>
+      </div>
       <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
     </div>
   `;
